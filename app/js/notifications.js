@@ -11,19 +11,50 @@ const Notifications = (() => {
   };
 
   /* ---------- NATIVE WINDOW ---------- */
-  async function _bringToFront() {
+  let _wasHiddenBeforeBreak = false;
+
+  async function _bringToFront(forBreak = false) {
     try {
       if (window.__TAURI__ && window.__TAURI__.window) {
         const win = window.__TAURI__.window.getCurrentWindow();
+        const isVisible = await win.isVisible();
+        
+        if (forBreak && !isVisible) {
+           _wasHiddenBeforeBreak = true;
+        }
+
         await win.show();
+        await win.setAlwaysOnTop(true);
         await win.setFocus();
+        await win.setAlwaysOnTop(false);
+        return !isVisible;
       }
-    } catch(e) { console.warn('Failed to focus native window', e); }
+    } catch(e) { console.warn('Failed to focus native window', e); return false; }
+  }
+
+  async function _hideIfWasHidden() {
+    try {
+      if (_wasHiddenBeforeBreak && window.__TAURI__ && window.__TAURI__.window) {
+        const win = window.__TAURI__.window.getCurrentWindow();
+        await win.hide();
+      }
+      _wasHiddenBeforeBreak = false;
+    } catch(e) { console.warn('Failed to hide native window', e); }
   }
 
   /* ---------- TOAST ---------- */
-  function toast(title, message, type = 'info', duration = 4000) {
-    _bringToFront();
+  async function toast(title, message, type = 'info', duration = 4000) {
+    const wasHidden = await _bringToFront(false);
+    
+    // If the app popped up just for this toast, track if the user interacts with it
+    let userInteracted = false;
+    const interactListener = () => { userInteracted = true; };
+    if (wasHidden) {
+       document.addEventListener('mousemove', interactListener, { once: true });
+       document.addEventListener('click', interactListener, { once: true });
+       document.addEventListener('keydown', interactListener, { once: true });
+    }
+
     const container = Utils.$('toastContainer');
     const el = Utils.createElement('div', {
       className: `toast toast--${type}`,
@@ -45,7 +76,19 @@ const Notifications = (() => {
 
     const dismiss = () => {
       el.classList.add('exiting');
-      setTimeout(() => el.remove(), 300);
+      setTimeout(async () => {
+         el.remove();
+         // If it was hidden, the user didn't interact, and no break is active, hide it again!
+         if (wasHidden && !userInteracted && window.__TAURI__ && window.__TAURI__.window && !isBreakActive()) {
+            try {
+               await window.__TAURI__.window.getCurrentWindow().hide();
+            } catch(e) {}
+         }
+         // Clean up listeners
+         document.removeEventListener('mousemove', interactListener);
+         document.removeEventListener('click', interactListener);
+         document.removeEventListener('keydown', interactListener);
+      }, 300);
     };
 
     el.querySelector('.toast__dismiss').addEventListener('click', dismiss);
@@ -60,8 +103,8 @@ const Notifications = (() => {
   /* ---------- MODAL ---------- */
   let _modalResolve = null;
 
-  function modal(title, bodyHTML, footerButtons = []) {
-    _bringToFront();
+  async function modal(title, bodyHTML, footerButtons = []) {
+    await _bringToFront(true); // Treat modals like breaks for visibility purposes
     const overlay = Utils.$('modalOverlay');
     const titleEl = Utils.$('modalTitle');
     const bodyEl = Utils.$('modalBody');
@@ -94,6 +137,7 @@ const Notifications = (() => {
   function closeModal() {
     Utils.$('modalOverlay').classList.remove('active');
     _modalResolve = null;
+    _hideIfWasHidden();
   }
 
   // Close modal on overlay click or close button
@@ -108,8 +152,8 @@ const Notifications = (() => {
   let _breakTimer = null;
   let _breakCallback = null;
 
-  function showBreak(title, description, durationSec, onComplete) {
-    _bringToFront();
+  async function showBreak(title, description, durationSec, onComplete) {
+    await _bringToFront(true);
     const overlay = Utils.$('breakOverlay');
     const titleEl = Utils.$('breakTitle');
     const descEl = Utils.$('breakDescription');
@@ -177,6 +221,7 @@ const Notifications = (() => {
       clearInterval(_breakTimer);
       _breakTimer = null;
     }
+    _hideIfWasHidden();
   }
 
   function isBreakActive() {
