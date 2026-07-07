@@ -15,31 +15,30 @@ const Notifications = (() => {
 
   async function _bringToFront(forBreak = false) {
     try {
-      if (window.__TAURI__ && window.__TAURI__.window) {
-        const win = window.__TAURI__.window.getCurrentWindow();
-        const isVisible = await win.isVisible();
+      if (window.__TAURI__ && window.__TAURI__.core) {
+        const invoke = window.__TAURI__.core.invoke;
+        const isVisible = await invoke('plugin:window|is_visible', { label: 'main' });
         
         if (forBreak && !isVisible) {
            _wasHiddenBeforeBreak = true;
         }
 
-        await win.show();
-        await win.setAlwaysOnTop(true);
-        await win.setFocus();
-        await win.setAlwaysOnTop(false);
+        await invoke('plugin:window|show', { label: 'main' });
+        await invoke('plugin:window|set_always_on_top', { label: 'main', alwaysOnTop: true });
+        await invoke('plugin:window|set_focus', { label: 'main' });
+        await invoke('plugin:window|set_always_on_top', { label: 'main', alwaysOnTop: false });
         return !isVisible;
       }
-    } catch(e) { console.warn('Failed to focus native window', e); return false; }
+    } catch(e) { console.warn('Failed to focus native window via invoke', e); return false; }
   }
 
   async function _hideIfWasHidden() {
     try {
-      if (_wasHiddenBeforeBreak && window.__TAURI__ && window.__TAURI__.window) {
-        const win = window.__TAURI__.window.getCurrentWindow();
-        await win.hide();
+      if (_wasHiddenBeforeBreak && window.__TAURI__ && window.__TAURI__.core) {
+        await window.__TAURI__.core.invoke('plugin:window|hide', { label: 'main' });
       }
       _wasHiddenBeforeBreak = false;
-    } catch(e) { console.warn('Failed to hide native window', e); }
+    } catch(e) { console.warn('Failed to hide native window via invoke', e); }
   }
 
   /* ---------- TOAST ---------- */
@@ -79,9 +78,9 @@ const Notifications = (() => {
       setTimeout(async () => {
          el.remove();
          // If it was hidden, the user didn't interact, and no break is active, hide it again!
-         if (wasHidden && !userInteracted && window.__TAURI__ && window.__TAURI__.window && !isBreakActive()) {
+         if (wasHidden && !userInteracted && window.__TAURI__ && window.__TAURI__.core && !isBreakActive()) {
             try {
-               await window.__TAURI__.window.getCurrentWindow().hide();
+               await window.__TAURI__.core.invoke('plugin:window|hide', { label: 'main' });
             } catch(e) {}
          }
          // Clean up listeners
