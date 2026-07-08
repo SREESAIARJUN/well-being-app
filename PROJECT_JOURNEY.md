@@ -77,5 +77,9 @@ Building a desktop app with an embedded local AI presented several unique challe
    - **Problem:** Getting a pop-up window while you are deep in focus can be incredibly jarring.
    - **Learning:** We tied our notification logic directly to the Focus Timer. When a user is in "Focus Mode," non-critical health reminders are suppressed. Furthermore, when normal toasts do pop out from the tray, they intelligently auto-hide themselves if the user doesn't interact with them, completely preserving the user's flow state.
 
+4. **The Reality of Bleeding-Edge Dev**
+   - **Problem:** Honestly, it felt like everything in this build just broke and did not work as expected. From WebGPU memory constraints to Tauri v2 breaking changes and LLM hallucinations, absolutely nothing worked right out of the box.
+   - **Learning:** Software engineering with experimental tools is an exercise in pain tolerance. If it can break, it will break. It required relentless debugging, throwing out entire architectures (like the RAG prompt injection), and a lot of patience to force the pieces together until they finally clicked.
+
 ---
 *Built with ❤️ using Vanilla JS, WebGPU, Rust, and Tauri.*
