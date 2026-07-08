@@ -1,0 +1,136 @@
+/* ============================================================
+   TOKENS — design system variables (dark default, light theme)
+   ============================================================ */
+
+:root {
+  /* ---- type scale ---- */
+  --font-sans: -apple-system, "Segoe UI Variable Text", "Segoe UI", Inter, Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: -apple-system, "Segoe UI Variable Display", "Segoe UI", Inter,
+    Roboto, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, "SF Mono", ui-monospace, monospace;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8438rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.375rem;
+
+  /* ---- spacing / radii ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-7: 28px; --sp-8: 32px;
+  --sp-10: 40px; --sp-12: 48px;
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px; --r-full: 999px;
+
+  /* ---- motion ---- */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --t-fast: 140ms; --t-med: 240ms; --t-slow: 420ms;
+
+  /* ---- z ---- */
+  --z-nav: 10; --z-banner: 40; --z-toast: 50; --z-modal: 60; --z-break: 70;
+
+  /* ---- module accents (fixed hues, both themes) ---- */
+  --m-dashboard: #5eead4;
+  --m-eye: #38bdf8;
+  --m-movement: #34d399;
+  --m-msk: #fb923c;
+  --m-mental: #c084fc;
+  --m-lifestyle: #fbbf24;
+  --m-focus: #f472b6;
+  --m-coach: #2dd4bf;
+  --m-settings: #94a3b8;
+
+  /* ---- status ---- */
+  --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --info: #38bdf8;
+}
+
+/* ---------------- dark (default) ---------------- */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-0: #0a0e17;
+  --bg-1: #0d1220;
+  --bg-glow-a: rgba(45, 212, 191, 0.07);
+  --bg-glow-b: rgba(139, 92, 246, 0.06);
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.075);
+  --surface-3: rgba(255, 255, 255, 0.11);
+  --surface-solid: #131a2b;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-1: #edf1f8;
+  --text-2: #a9b4c8;
+  --text-3: #66738c;
+  --shadow-1: 0 2px 8px rgba(2, 6, 16, 0.35);
+  --shadow-2: 0 10px 34px rgba(2, 6, 16, 0.45);
+  --shadow-3: 0 24px 70px rgba(2, 6, 16, 0.6);
+  --accent: #2dd4bf;
+  --accent-2: #8b5cf6;
+  --on-accent: #06251f;
+  --glass-blur: saturate(150%) blur(22px);
+  --track: rgba(255, 255, 255, 0.08);
+  --chart-grid: rgba(255, 255, 255, 0.07);
+}
+
+/* ---------------- light ---------------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-0: #eef1f8;
+  --bg-1: #f6f8fc;
+  --bg-glow-a: rgba(20, 184, 166, 0.1);
+  --bg-glow-b: rgba(139, 92, 246, 0.08);
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-2: rgba(255, 255, 255, 0.82);
+  --surface-3: rgba(255, 255, 255, 0.95);
+  --surface-solid: #ffffff;
+  --border: rgba(15, 30, 60, 0.1);
+  --border-strong: rgba(15, 30, 60, 0.18);
+  --text-1: #16203a;
+  --text-2: #4a5876;
+  --text-3: #8592ab;
+  --shadow-1: 0 2px 8px rgba(30, 45, 80, 0.08);
+  --shadow-2: 0 10px 34px rgba(30, 45, 80, 0.12);
+  --shadow-3: 0 24px 70px rgba(30, 45, 80, 0.18);
+  --accent: #0d9488;
+  --accent-2: #7c3aed;
+  --on-accent: #ffffff;
+  --glass-blur: saturate(160%) blur(22px);
+  --track: rgba(15, 30, 60, 0.09);
+  --chart-grid: rgba(15, 30, 60, 0.08);
+
+  --m-dashboard: #0d9488;
+  --m-eye: #0284c7;
+  --m-movement: #059669;
+  --m-msk: #ea580c;
+  --m-mental: #9333ea;
+  --m-lifestyle: #d97706;
+  --m-focus: #db2777;
+  --m-coach: #0d9488;
+  --m-settings: #64748b;
+}
+
+/* ---- per-module accent binding: page roots carry data-module ---- */
+[data-module="dashboard"] { --accent: var(--m-dashboard); }
+[data-module="eye"]       { --accent: var(--m-eye); }
+[data-module="movement"]  { --accent: var(--m-movement); }
+[data-module="msk"]       { --accent: var(--m-msk); }
+[data-module="mental"]    { --accent: var(--m-mental); }
+[data-module="lifestyle"] { --accent: var(--m-lifestyle); }
+[data-module="focus"]     { --accent: var(--m-focus); }
+[data-module="coach"]     { --accent: var(--m-coach); }
+[data-module="settings"]  { --accent: var(--m-settings); }
+
+:root[data-theme="dark"] [data-module] { --on-accent: #071b17; }
+:root[data-theme="light"] [data-module] { --on-accent: #ffffff; }
+
+/* derived accent tints (WebView2 & Chromium support color-mix) */
+:root, [data-module] {
+  --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent);
+  --accent-softer: color-mix(in srgb, var(--accent) 7%, transparent);
+  --accent-border: color-mix(in srgb, var(--accent) 32%, transparent);
+  --accent-strong: color-mix(in srgb, var(--accent) 82%, white 18%);
+}

@@ -1,0 +1,105 @@
+/* ============================================================
+   BREAKS — full-screen guided break overlay
+   ============================================================ */
+
+.break-overlay {
+  position: fixed; inset: 0; z-index: var(--z-break);
+  display: none;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-0) 80%, transparent);
+  backdrop-filter: saturate(140%) blur(26px);
+  -webkit-backdrop-filter: saturate(140%) blur(26px);
+}
+.break-overlay.active { display: grid; animation: fadeIn var(--t-med) var(--ease) both; }
+
+.break-stage {
+  width: min(560px, calc(100vw - 64px));
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-5);
+  animation: popIn var(--t-slow) var(--ease-spring) both;
+}
+.break-stage__kicker {
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent);
+  display: flex; align-items: center; gap: 8px;
+}
+.break-stage__kicker svg { width: 15px; height: 15px; }
+.break-stage__title { font-size: var(--text-3xl); font-weight: 700; letter-spacing: -0.02em; }
+.break-stage__desc { font-size: var(--text-md); color: var(--text-2); max-width: 420px; line-height: 1.6; }
+.break-stage__actions { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); }
+.break-stage__esc { font-size: var(--text-xs); color: var(--text-3); margin-top: var(--sp-2); }
+
+/* countdown ring host (Charts.ring) */
+.break-ring { margin: var(--sp-2) 0; }
+.break-ring .ring__value { font-size: var(--text-4xl); }
+
+/* step progress (stretch sequences) */
+.break-steps { display: flex; gap: 6px; justify-content: center; }
+.break-steps i {
+  width: 26px; height: 4px; border-radius: var(--r-full);
+  background: var(--track); transition: background var(--t-med) var(--ease);
+}
+.break-steps i.done { background: var(--accent); }
+.break-steps i.now { background: var(--accent); animation: pulseSoft 1.6s ease-in-out infinite; }
+
+/* ------- box breathing ------- */
+.breathe {
+  position: relative; width: 220px; height: 220px;
+  display: grid; place-items: center; margin: var(--sp-2) 0;
+}
+.breathe__ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid var(--accent-border);
+  background: radial-gradient(circle, var(--accent-softer), transparent 70%);
+  transform: scale(0.62);
+  transition: transform 3.9s cubic-bezier(0.45, 0, 0.55, 1);
+}
+.breathe.inhale .breathe__ring { transform: scale(1); }
+.breathe.exhale .breathe__ring { transform: scale(0.62); }
+.breathe__core {
+  width: 96px; height: 96px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  opacity: 0.9;
+  filter: blur(0.5px);
+  transform: scale(0.8);
+  transition: transform 3.9s cubic-bezier(0.45, 0, 0.55, 1);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.breathe.inhale .breathe__core { transform: scale(1.18); }
+.breathe.exhale .breathe__core { transform: scale(0.8); }
+.breathe__phase {
+  position: absolute; font-size: var(--text-lg); font-weight: 650; color: var(--text-1);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+.breathe__count {
+  position: absolute; bottom: -8px; font-size: var(--text-xs); color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------- figure-8 eye exercise ------- */
+.fig8 { width: 300px; height: 160px; margin: var(--sp-2) 0; }
+.fig8 path { fill: none; stroke: var(--track); stroke-width: 2.5; stroke-linecap: round; }
+.fig8 .fig8__dot { fill: var(--accent); filter: drop-shadow(0 0 8px var(--accent)); }
+
+/* ------- palming ------- */
+.palming-glow {
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+  display: grid; place-items: center;
+  animation: pulseSoft 4s ease-in-out infinite;
+}
+.palming-glow svg { width: 64px; height: 64px; color: var(--accent); opacity: 0.9; }
+
+/* ------- checklist (posture reset) ------- */
+.break-check { display: flex; flex-direction: column; gap: var(--sp-2); text-align: left;
+  width: min(400px, 100%); }
+.break-check label {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 14px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: var(--text-sm); cursor: pointer;
+  transition: all var(--t-fast) var(--ease);
+}
+.break-check label:hover { border-color: var(--accent-border); }
+.break-check input { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+.break-check input:checked + span { color: var(--text-3); text-decoration: line-through; }

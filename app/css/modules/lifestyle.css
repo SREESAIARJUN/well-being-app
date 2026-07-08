@@ -1,0 +1,32 @@
+/* ============================================================
+   LIFESTYLE module styles
+   ============================================================ */
+
+.life-water { display: flex; align-items: center; gap: var(--sp-5); }
+.life-water__controls { flex: 1; min-width: 0; }
+
+.life-tip {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-1);
+  margin: var(--sp-2) 0 var(--sp-3);
+  min-height: 3em;
+}
+
+.life-plan { display: flex; flex-direction: column; gap: var(--sp-2); }
+.life-plan__item {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 9px 11px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+  font-size: var(--text-sm); cursor: pointer;
+}
+.life-plan__done { color: var(--text-3); text-decoration: line-through; }
+
+#lifePlanInput, #lifeWinddownTime { user-select: text; }
+
+@media (max-width: 880px) {
+  .life-hero.cols-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .life-water { flex-direction: column; text-align: center; }
+}

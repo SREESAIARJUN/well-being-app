@@ -1,246 +1,251 @@
 /* ============================================================
-   LIFESTYLE & RECOVERY MODULE
+   LIFESTYLE — hydration, nutrition nudges, sleep/wind-down,
+   weekly recovery plan.
    ============================================================ */
 
-const LifestyleModule = (() => {
-  let _initialized = false;
+import { Utils } from '../core/utils.js';
+import { Bus } from '../core/bus.js';
+import { Store } from '../core/store.js';
+import { Scheduler } from '../core/scheduler.js';
+import { Charts } from '../core/charts.js';
+import { Notify } from '../core/notify.js';
 
-  const NUTRITION_TIPS = [
-    { icon: '💧', tip: 'Stay hydrated — aim for 8 glasses of water per day. Dehydration worsens eye strain and fatigue.' },
-    { icon: '🐟', tip: 'Include omega-3 rich foods (salmon, walnuts, flaxseed). They support tear film quality and reduce inflammation.' },
-    { icon: '🥬', tip: 'Eat leafy greens (kale, spinach) rich in lutein and zeaxanthin — key nutrients for eye health.' },
-    { icon: '🫐', tip: 'Berries are packed with antioxidants that combat oxidative stress from prolonged screen exposure.' },
-    { icon: '🥚', tip: 'Eggs contain lutein, zeaxanthin, and vitamin E — a powerhouse for eye and brain health.' },
-    { icon: '🥕', tip: 'Orange and yellow vegetables provide beta-carotene (vitamin A), essential for vision.' },
-    { icon: '🌾', tip: 'Choose whole grains over refined — they provide steady energy without sugar crashes.' },
-    { icon: '🥜', tip: 'Nuts and seeds are rich in vitamin E and zinc, supporting both eye health and immunity.' },
-  ];
+const TIPS = [
+  'Keep a full glass or bottle in your line of sight — visibility drives the habit.',
+  'Leafy greens (spinach, kale) are rich in lutein &amp; zeaxanthin, which support eye health.',
+  'Omega-3s from fish, walnuts, or flax help tear-film quality and dry-eye comfort.',
+  'Swap refined carbs for whole grains at lunch to avoid the 3 pm energy crash.',
+  'Add a palm-sized portion of protein to snacks for steadier afternoon focus.',
+  'Cut caffeine after mid-afternoon so it doesn\'t erode tonight\'s sleep.',
+  'Eat away from your desk when you can — it aids digestion and gives your eyes a real break.',
+  'Colourful vegetables at each meal cover most micronutrients desk workers miss.',
+  'Feeling snacky at 4 pm? Try water first — mild thirst often masquerades as hunger.',
+  'Batch a fruit or nut portion in the morning so the healthy option is the easy one.',
+];
 
-  const SLEEP_TIPS = [
-    'Stop using screens 30-60 minutes before bed',
-    'Enable night mode / blue light filter after sunset',
-    'Keep your bedroom cool (60-67°F / 15-19°C)',
-    'Avoid caffeine after 2:00 PM',
-    'Establish a consistent sleep and wake time',
-    'Use blackout curtains or an eye mask',
-    'Try a relaxation technique before sleep',
-  ];
+const WINDDOWN_ITEMS = [
+  'Screens dimmed / blue-light reduced',
+  'No caffeine since mid-afternoon',
+  'Tomorrow\'s top task written down',
+  'Bedroom cool and dark',
+  'Heading to bed at a consistent time',
+];
 
-  const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const STARTER_PLAN = [
+  'Two 20-minute outdoor walks',
+  'One screen-free evening',
+  'One social catch-up',
+  'One session of real exercise',
+];
 
-  const RECOVERY_ACTIVITIES = [
-    { key: 'outdoor', label: 'Outdoor Walk', icon: '🌳' },
-    { key: 'social', label: 'Social Time', icon: '👥' },
-    { key: 'offscreen', label: 'Off-Screen', icon: '📵' },
-    { key: 'hobby', label: 'Hobby/Creative', icon: '🎨' },
-    { key: 'exercise', label: 'Exercise', icon: '🏃' },
-    { key: 'nature', label: 'Nature Time', icon: '🏞️' },
-  ];
+let container = null;
+let unsub = [];
 
-  function init() {
-    if (_initialized) return;
-    _initialized = true;
-    render();
-  }
+function refreshHydrateCountdown() {
+  const el = container?.querySelector('#lifeHydrateNext');
+  if (!el) return;
+  const next = Scheduler.next().find(r => r.kind === 'hydrate');
+  el.textContent = next ? Utils.fmtRelative(next.at - Date.now()) : 'paused';
+}
 
-  function render() {
-    const page = Utils.$('page-lifestyle');
-    const data = Store.getLifestyleData();
-    const settings = Store.getSettings();
-    const hydration = data.hydration || 0;
-    const hydrationGoal = settings.hydrationGoal || 8;
-    const fillPct = Math.min((hydration / hydrationGoal) * 100, 100);
-    const sleepChecks = data.sleepChecks || {};
-    const recoveryPlan = data.recoveryPlan || {};
-    const nudgesShown = data.nutritionNudges || 0;
+function weekData() {
+  const days = [...Utils.pastDateKeys(6), Utils.dateKey()];
+  return days.map(date => {
+    const data = Store.day(date);
+    const v = data ? data.lifestyle.water : 0;
+    return { label: Utils.weekdayShort(date), value: v, hint: `${v} glasses` };
+  });
+}
 
-    // Pick 3 random nutrition tips
-    const shuffled = [...NUTRITION_TIPS].sort(() => 0.5 - Math.random());
-    const tips = shuffled.slice(0, 3);
+function render(el) {
+  container = el;
+  const s = Store.settings();
+  const d = Store.today();
+  const water = d.lifestyle.water;
+  const tip = TIPS[d.lifestyle.nudgeIndex % TIPS.length];
+  const plan = Store.recoveryPlan();
 
-    page.innerHTML = `
-      <div class="section-header">
-        <h2>Lifestyle & Recovery</h2>
-      </div>
-
-      <div class="grid grid--3 anim-stagger" style="margin-bottom: var(--space-8);">
-        <!-- Hydration Tracker -->
-        <div class="card card--glow-cyan" style="text-align:center;">
-          <div class="card__title" style="margin-bottom:var(--space-4);">Hydration</div>
-          <div class="hydration" style="justify-content:center;">
-            <div class="hydration__glass">
-              <div class="hydration__fill" style="height:${fillPct}%"></div>
-            </div>
-            <div style="text-align:left;">
-              <div style="font-size:var(--text-2xl); font-weight:var(--weight-bold);">${hydration}</div>
-              <div style="font-size:var(--text-xs); color:var(--text-tertiary);">of ${hydrationGoal} glasses</div>
-              <div class="hydration__buttons" style="margin-top:var(--space-3);">
-                <button class="btn btn--sm btn--primary" onclick="LifestyleModule.addWater(1)">+ 1 Glass</button>
-                <button class="btn btn--sm btn--ghost" onclick="LifestyleModule.addWater(-1)">Undo</button>
-              </div>
-            </div>
-          </div>
-          <div class="progress" style="margin-top:var(--space-4);">
-            <div class="progress__fill" style="width:${fillPct}%;"></div>
+  el.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="page-head__title">
+          <div class="page-head__icon">${Utils.icon('leaf', 20)}</div>
+          <div>
+            <h1>Lifestyle</h1>
+            <div class="page-head__sub">Hydration · nutrition · sleep · recovery</div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Lifestyle Score -->
-        <div class="card">
-          <div class="card__title" style="margin-bottom:var(--space-4);">Lifestyle Score</div>
-          <div id="lifeScoreGauge" style="width:140px; height:140px; margin:0 auto;"></div>
-          <div style="margin-top:var(--space-4);">
-            <div style="display:flex; justify-content:space-between; font-size:var(--text-xs); margin-bottom:var(--space-2);">
-              <span style="color:var(--text-tertiary);">Hydration</span>
-              <span style="color:var(--accent-cyan);">${Utils.pct(hydration, hydrationGoal)}%</span>
-            </div>
-            <div class="progress" style="margin-bottom:var(--space-3); height:4px;">
-              <div class="progress__fill" style="width:${Math.min(Utils.pct(hydration, hydrationGoal), 100)}%"></div>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-size:var(--text-xs); margin-bottom:var(--space-2);">
-              <span style="color:var(--text-tertiary);">Sleep Hygiene</span>
-              <span style="color:var(--accent-violet);">${Utils.pct(Object.values(sleepChecks).filter(v => v).length, SLEEP_TIPS.length)}%</span>
-            </div>
-            <div class="progress" style="height:4px;">
-              <div class="progress__fill progress__fill--violet" style="width:${Utils.pct(Object.values(sleepChecks).filter(v => v).length, SLEEP_TIPS.length)}%"></div>
-            </div>
+    <div class="card-grid cols-2 life-hero">
+      <div class="card card--pad life-water">
+        <div id="lifeWaterRing"></div>
+        <div class="life-water__controls">
+          <div class="card__title">Hydration</div>
+          <div class="small muted">${water} of ${s.waterGoal} glasses today · next ${' '}<b id="lifeHydrateNext">–</b></div>
+          <div class="row mt-3">
+            <button class="btn btn--icon btn--secondary" data-water="-1" title="Remove a glass">${Utils.icon('minus', 16)}</button>
+            <button class="btn btn--primary grow" data-water="1">${Utils.icon('drop', 15)} Log a glass</button>
           </div>
         </div>
+      </div>
+      <div class="card card--pad">
+        <div class="card__title">${Utils.icon('leaf', 16)} Nutrition nudge</div>
+        <div class="card__sub">Small, evidence-informed habits</div>
+        <p class="life-tip">${tip}</p>
+        <button class="btn btn--ghost btn--sm" data-next-tip>${Utils.icon('refresh', 13)} Next tip</button>
+      </div>
+    </div>
 
-        <!-- Weekly Hydration Chart -->
-        <div class="card">
-          <div class="card__title" style="margin-bottom:var(--space-4);">Weekly Hydration</div>
-          <div id="lifeHydrationChart" style="width:100%; height:120px;"></div>
+    <div class="section-title">Sleep &amp; wind-down</div>
+    <div class="card card--pad" id="lifeWinddown">
+      <div class="row row--between">
+        <div class="grow">
+          <div class="card__title">${Utils.icon('moon', 16)} Evening wind-down</div>
+          <div class="small muted">Reminder set for ${s.winddownAt ? `<b>${Utils.esc(s.winddownAt)}</b>` : '<b>off</b>'}</div>
         </div>
+        ${d.lifestyle.winddownDone ? `<span class="badge badge--ok">${Utils.icon('check', 12)} Done tonight</span>` : ''}
       </div>
+      <div class="row row--wrap mt-3" style="gap:var(--sp-3);align-items:center">
+        <label class="field__label" for="lifeWinddownTime">Wind-down time</label>
+        <input type="time" class="input" id="lifeWinddownTime" style="width:auto" value="${Utils.esc(s.winddownAt || '')}">
+        <label class="row" style="gap:8px;cursor:pointer">
+          <span class="toggle"><input type="checkbox" id="lifeWinddownOn" ${s.winddownAt ? 'checked' : ''}><i></i></span>
+          <span class="small">Enabled</span>
+        </label>
+      </div>
+      <div class="break-check mt-4" style="width:100%">
+        ${WINDDOWN_ITEMS.map((item, i) => `
+          <label><input type="checkbox" data-wind="${i}" ${d.lifestyle.winddownDone ? 'checked' : ''}><span>${Utils.esc(item)}</span></label>`).join('')}
+      </div>
+    </div>
 
-      <!-- Nutrition Nudges -->
-      <div class="section-header">
-        <h3>Nutrition Tips</h3>
-        <p style="font-size:var(--text-sm); color:var(--text-tertiary);">Simple, non-prescriptive dietary guidance</p>
+    <div class="section-title">This week's recovery plan</div>
+    <div class="card card--pad">
+      <div class="card__sub" style="margin-bottom:var(--sp-3)">${Utils.esc(Utils.isoWeekKey())} · schedule off-screen recovery</div>
+      <div id="lifePlanList">${planListHtml(plan)}</div>
+      <div class="row mt-3">
+        <input type="text" class="input grow" id="lifePlanInput" placeholder="Add a recovery intention…" maxlength="120">
+        <button class="btn btn--secondary" data-add-plan>${Utils.icon('plus', 15)} Add</button>
       </div>
-      <div class="grid grid--3 anim-stagger" style="margin-bottom: var(--space-8);">
-        ${tips.map(t => `
-          <div class="card card--compact">
-            <div style="font-size:32px; margin-bottom:var(--space-3);">${t.icon}</div>
-            <p style="font-size:var(--text-sm); color:var(--text-secondary); line-height:var(--leading-relaxed);">${t.tip}</p>
-          </div>
-        `).join('')}
-      </div>
+      ${plan.items.length === 0 ? `<button class="btn btn--ghost btn--sm btn--block mt-3" data-starter-plan>${Utils.icon('sparkle', 13)} Suggest a starter plan</button>` : ''}
+    </div>
 
-      <!-- Sleep Hygiene Coach -->
-      <div class="section-header">
-        <h3>Sleep Hygiene Checklist</h3>
-        <div class="section-header__actions">
-          <span class="badge badge--violet">🌙 Wind-down at ${settings.sleepReminder || '22:00'}</span>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom: var(--space-8);">
-        ${SLEEP_TIPS.map((tip, i) => `
-          <div class="posture-check ${sleepChecks[i] ? 'checked' : ''}" onclick="LifestyleModule.toggleSleep(${i})">
-            <div class="posture-check__box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" width="14" height="14" style="display:${sleepChecks[i] ? 'block' : 'none'}"><polyline points="20 6 9 17 4 12"/></svg>
-            </div>
-            <span class="posture-check__label">${tip}</span>
-          </div>
-        `).join('')}
-        <div style="margin-top:var(--space-4); padding-top:var(--space-3); border-top:1px solid var(--glass-border); font-size:var(--text-sm); color:var(--text-secondary);">
-          Score: <strong>${Object.values(sleepChecks).filter(v => v).length}/${SLEEP_TIPS.length}</strong>
-        </div>
-      </div>
+    <div class="section-title">Hydration this week</div>
+    <div class="card card--pad">
+      <div class="card__title">${Utils.icon('chart', 16)} Glasses per day</div>
+      <div class="card__sub">Dashed line is your daily goal</div>
+      <canvas id="lifeWeek"></canvas>
+    </div>`;
 
-      <!-- Recovery Planner -->
-      <div class="section-header">
-        <h3>Weekly Recovery Plan</h3>
-        <p style="font-size:var(--text-sm); color:var(--text-tertiary);">Schedule off-screen time, outdoor walks, and social connections</p>
-      </div>
-      <div class="card">
-        <div style="display:flex; flex-direction:column; gap:var(--space-3);">
-          ${DAYS_OF_WEEK.map(day => `
-            <div class="recovery-day">
-              <div class="recovery-day__name">${day}</div>
-              <div class="recovery-day__activities">
-                ${RECOVERY_ACTIVITIES.map(act => {
-                  const isPlanned = recoveryPlan[day]?.includes(act.key);
-                  return `<span class="chip ${isPlanned ? 'active' : ''}" onclick="LifestyleModule.toggleRecovery('${day}', '${act.key}')" style="font-size:var(--text-xs);">${act.icon} ${act.label}</span>`;
-                }).join('')}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
+  Charts.ring(el.querySelector('#lifeWaterRing'), {
+    value: Math.round(Utils.clamp(water / Math.max(1, s.waterGoal), 0, 1) * 100),
+    size: 148, thickness: 11, valueText: water, label: `of ${s.waterGoal}`,
+    color: getComputedStyle(document.documentElement).getPropertyValue('--m-lifestyle').trim(),
+  });
+  Charts.weekBars(el.querySelector('#lifeWeek'), weekData(), { height: 130, goal: s.waterGoal, unit: 'glasses' });
+  refreshHydrateCountdown();
 
-    // Charts
-    setTimeout(() => {
-      const scoreEl = Utils.$('lifeScoreGauge');
-      if (scoreEl) {
-        const lifeScore = _calcLifestyleScore(data, settings);
-        Charts.gauge(scoreEl, lifeScore, 100, { size: 140, color: 'cyan', label: 'LIFESTYLE' });
+  el.querySelector('#lifeWinddownTime').addEventListener('change', e => {
+    const v = e.target.value;
+    Store.updateSettings({ winddownAt: v });
+  });
+  el.querySelector('#lifeWinddownOn').addEventListener('change', e => {
+    if (e.target.checked) Store.updateSettings({ winddownAt: container.querySelector('#lifeWinddownTime').value || '21:30' });
+    else Store.updateSettings({ winddownAt: '' });
+  });
+
+  if (!el.dataset.bound) {
+    el.dataset.bound = '1';
+    el.addEventListener('click', e => {
+      const water = e.target.closest('[data-water]');
+      if (water) {
+        const delta = Number(water.dataset.water);
+        const before = Store.today().lifestyle.water;
+        Store.update('lifestyle', l => { l.water = Math.max(0, l.water + delta); });
+        const now = Store.today().lifestyle.water;
+        if (delta > 0 && now === Store.settings().waterGoal && before < now) {
+          Notify.toast('Goal reached! 💧', `${now} glasses — nicely hydrated.`, 'success', 3000);
+        }
+        return;
       }
-
-      const chartEl = Utils.$('lifeHydrationChart');
-      if (chartEl) {
-        const week = Store.getWeeklyData('lifestyle', 7);
-        Charts.barChart(chartEl, week.map(d => Utils.dayName(d.date)),
-          [{ data: week.map(d => d.data.hydration || 0), color: 'cyan' }], { height: 120 });
+      if (e.target.closest('[data-next-tip]')) {
+        Store.update('lifestyle', l => { l.nudgeIndex = (l.nudgeIndex + 1) % TIPS.length; });
+        return;
       }
-    }, 150);
-  }
-
-  function _calcLifestyleScore(data, settings) {
-    let score = 0;
-    const hydration = data.hydration || 0;
-    const goal = settings.hydrationGoal || 8;
-    score += Math.min((hydration / goal) * 40, 40);
-
-    const sleepChecks = data.sleepChecks || {};
-    const sleepScore = Object.values(sleepChecks).filter(v => v).length;
-    score += (sleepScore / SLEEP_TIPS.length) * 30;
-
-    const recovery = data.recoveryPlan || {};
-    const totalPlanned = Object.values(recovery).reduce((s, arr) => s + (arr?.length || 0), 0);
-    score += Math.min(totalPlanned / 7 * 30, 30);
-
-    return Math.round(score);
-  }
-
-  function addWater(amount) {
-    const data = Store.getLifestyleData();
-    const newVal = Math.max(0, (data.hydration || 0) + amount);
-    Store.updateLifestyleData({ hydration: newVal });
-    if (amount > 0) {
-      const settings = Store.getSettings();
-      if (newVal >= settings.hydrationGoal) {
-        Notifications.toast('Hydration Goal Met! 🎉', 'You\'ve reached your daily water intake goal.', 'success');
+      if (e.target.closest('[data-add-plan]')) {
+        const input = container.querySelector('#lifePlanInput');
+        const label = input.value.trim();
+        if (!label) { input.focus(); return; }
+        Store.updateRecoveryPlan(p => p.items.push({ id: Utils.uid(), label, done: false }));
+        input.value = '';
+        return;
       }
-    }
-    render();
+      if (e.target.closest('[data-starter-plan]')) {
+        Store.updateRecoveryPlan(p => { STARTER_PLAN.forEach(label => p.items.push({ id: Utils.uid(), label, done: false })); });
+        return;
+      }
+      const del = e.target.closest('[data-del-plan]');
+      if (del) { Store.updateRecoveryPlan(p => { p.items = p.items.filter(i => i.id !== del.dataset.delPlan); }); }
+    });
+
+    el.addEventListener('change', e => {
+      const planToggle = e.target.closest('[data-plan-toggle]');
+      if (planToggle) {
+        Store.updateRecoveryPlan(p => { const it = p.items.find(i => i.id === planToggle.dataset.planToggle); if (it) it.done = planToggle.checked; });
+        return;
+      }
+      if (e.target.matches('[data-wind]')) {
+        const boxes = Utils.$$('[data-wind]', container);
+        if (boxes.every(b => b.checked)) {
+          if (!Store.today().lifestyle.winddownDone) {
+            Store.update('lifestyle', l => { l.winddownDone = true; });
+            Notify.toast('Wind-down complete', 'Good habits tonight — sleep well. 🌙', 'success', 3000);
+          }
+        }
+      }
+    });
+
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.id === 'lifePlanInput') container.querySelector('[data-add-plan]').click();
+    });
   }
+}
 
-  function toggleSleep(index) {
-    const data = Store.getLifestyleData();
-    const checks = data.sleepChecks || {};
-    checks[index] = !checks[index];
-    Store.updateLifestyleData({ sleepChecks: checks });
-    render();
+function planListHtml(plan) {
+  if (!plan.items.length) {
+    return `<div class="small muted">No items yet — add your own or use a starter plan.</div>`;
   }
+  return `<div class="life-plan">${plan.items.map(it => `
+    <label class="life-plan__item">
+      <span class="toggle"><input type="checkbox" data-plan-toggle="${it.id}" ${it.done ? 'checked' : ''}><i></i></span>
+      <span class="grow ${it.done ? 'life-plan__done' : ''}">${Utils.esc(it.label)}</span>
+      <button class="btn btn--ghost btn--icon btn--sm" data-del-plan="${it.id}" title="Remove">${Utils.icon('x', 13)}</button>
+    </label>`).join('')}</div>`;
+}
 
-  function toggleRecovery(day, activity) {
-    const data = Store.getLifestyleData();
-    const plan = data.recoveryPlan || {};
-    if (!plan[day]) plan[day] = [];
-    const idx = plan[day].indexOf(activity);
-    if (idx > -1) {
-      plan[day].splice(idx, 1);
-    } else {
-      plan[day].push(activity);
-    }
-    Store.updateLifestyleData({ recoveryPlan: plan });
-    render();
-  }
+export default {
+  id: 'lifestyle',
+  title: 'Lifestyle',
+  icon: 'leaf',
 
-  function onShow() { render(); }
+  render,
 
-  return { init, render, onShow, addWater, toggleSleep, toggleRecovery };
-})();
+  onShow() {
+    unsub.push(Bus.on('store:changed', ({ scope }) => {
+      if (['lifestyle', 'recovery', 'settings'].includes(scope)) render(container);
+    }));
+    unsub.push(Bus.on('lifestyle:open-winddown', () => {
+      const card = container?.querySelector('#lifeWinddown');
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.remove('flash-highlight'); void card.offsetWidth; card.classList.add('flash-highlight');
+      }
+    }));
+  },
+
+  onHide() { unsub.forEach(off => off()); unsub = []; },
+
+  onTick() { refreshHydrateCountdown(); },
+};

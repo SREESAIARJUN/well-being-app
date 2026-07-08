@@ -1,0 +1,24 @@
+/* ============================================================
+   FOCUS module styles
+   ============================================================ */
+
+.focus-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-6);
+}
+.focus-hero #focusRing { margin: var(--sp-1) 0; }
+
+.focus-dots { display: flex; gap: 8px; }
+.focus-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--track);
+  transition: background var(--t-med) var(--ease);
+}
+.focus-dot.is-done { background: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
+
+.focus-controls { display: flex; gap: var(--sp-3); flex-wrap: wrap; justify-content: center; }
+
+.focus-suppress { padding: var(--sp-4) var(--sp-5); }

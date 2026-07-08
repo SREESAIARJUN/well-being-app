@@ -1,0 +1,45 @@
+/* ============================================================
+   SETTINGS module styles
+   ============================================================ */
+
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-4);
+}
+
+.set-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-5) var(--sp-6);
+}
+.set-slider { display: flex; flex-direction: column; gap: 9px; }
+.set-slider__head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: var(--text-sm); color: var(--text-2);
+}
+.set-slider__head b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.set-days { display: flex; gap: 6px; }
+.set-day {
+  width: 38px; height: 38px; border-radius: var(--r-md);
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-2); font-weight: 650; font-size: var(--text-sm);
+  transition: all var(--t-fast) var(--ease);
+}
+.set-day:hover { border-color: var(--border-strong); }
+.set-day.is-active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+.set-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.set-row:last-child { border-bottom: none; }
+.set-row.is-disabled { opacity: 0.6; cursor: default; }
+
+.set-about { display: flex; align-items: center; gap: var(--sp-3); }
+.set-about .brand__mark { flex-shrink: 0; }
+
+#setWorkStart, #setWorkEnd, #setWinddown, #setImportFile { user-select: text; }

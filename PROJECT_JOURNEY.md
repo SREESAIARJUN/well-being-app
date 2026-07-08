@@ -82,4 +82,46 @@ Building a desktop app with an embedded local AI presented several unique challe
    - **Learning:** Sometimes, an architecture is just completely broken from the ground up. This build proved that relying on experimental tools and a flawed AI assistant results in a completely broken product where nothing functions correctly.
 
 ---
-*Built with ❤️ using Vanilla JS, WebGPU, Rust, and Tauri.*
+
+## v1.0 — The Ground-Up Rebuild
+
+The honest reality check above described the first attempt: a beautiful-looking shell where
+almost nothing actually worked. Rather than keep patching it, we **deleted the entire
+implementation and rebuilt from scratch**, keeping only the two steering documents (this
+journey and the expanded PRD), the app icons, and the vendored LFM2.5 WebGPU runtime pulled
+from Hugging Face. The new architecture is written down as a hard contract in
+[ARCHITECTURE.md](ARCHITECTURE.md), and every one of the earlier failures was addressed head-on:
+
+- **The pop-out window that "broke constantly."** The old build shoved the *main* window to
+  the foreground for every notification, fighting Tauri v2's window API and stealing focus
+  mid-task. The rebuild uses a **dedicated, frameless, always-on-top popup window** that is
+  configured `focus: false` and positioned above the tray from the Rust side using the
+  monitor work-area. It shows a reminder **without ever taking focus** from what you're doing,
+  and reports the chosen action back to the main window over a clean event channel. Reminders
+  route through a single `notify.js` decision point — popup when the app is in the background,
+  in-app banner when it's already focused.
+- **The "robotic" local AI.** We kept the agentic-orchestrator insight but implemented it
+  properly: `score.js` deterministically computes the factual sentence from your real data,
+  a small intent classifier picks the topic, and the 230M model is asked for exactly one warm
+  conversational sentence (≤96 tokens, streamed). When WebGPU or the model isn't available,
+  a genuinely useful rule-based coach takes over — no dead ends, no phantom `window.marked`
+  dependency like before.
+- **Timers that die on sleep.** Everything time-based (the scheduler, focus timer, and break
+  countdowns) now runs off **absolute epoch deadlines recomputed every tick**, so suspending
+  the machine or hiding the window never desynchronises a countdown. A 90-second spacing guard
+  and a mode matrix (Balanced / Focus / Recovery / Resilience) mean you get **one** relevant
+  nudge at a time instead of a pile-up.
+- **A real, whole-body scope.** The PRD's full vision is now actually built: eye health,
+  movement, musculoskeletal, mental health & resilience, lifestyle/recovery, and deep work —
+  each a self-contained module against a shared design system and store, tied together by a
+  dashboard with a composite health score and per-pillar breakdown.
+
+The frontend was verified end-to-end in a browser (every page renders with zero console
+errors; water logging, guided breaks, the focus-timer lifecycle, check-ins, the AI coach,
+reminders, and theme switching were all exercised), and the native shell builds cleanly.
+
+**Learning:** when the foundation is wrong, the fastest path forward is an honest teardown
+plus a written contract — not another patch on top of the crack.
+
+---
+*Built with ❤️ using Vanilla JS, WebGPU, Rust, and Tauri v2.*

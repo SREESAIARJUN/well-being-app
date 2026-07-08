@@ -1,266 +1,291 @@
 /* ============================================================
-   FOCUS / POMODORO MODULE
+   DEEP WORK — pomodoro focus timer that protects flow.
+   While a focus session runs, the scheduler suppresses
+   non-critical reminders (via Bus 'focus:changed').
+
+   Engine: absolute deadline timestamps + ONE module-level
+   interval created on start and cleared on stop, so the
+   countdown keeps running while the page is hidden. onTick
+   only repaints.
    ============================================================ */
 
-const FocusModule = (() => {
-  let _initialized = false;
-  let _running = false;
-  let _phase = 'focus'; // focus | shortBreak | longBreak
-  let _sessionsCompleted = 0;
-  let _totalFocusSec = 0;
+import { Utils } from '../core/utils.js';
+import { Bus } from '../core/bus.js';
+import { Store } from '../core/store.js';
+import { Charts } from '../core/charts.js';
+import { Notify } from '../core/notify.js';
+import { Modal } from '../core/modal.js';
+import { Breaks } from '../breaks.js';
 
-  function init() {
-    if (_initialized) return;
-    _initialized = true;
-    render();
+let container = null;
+let unsub = [];
+
+// engine state (module scope — persists across page show/hide)
+let phase = 'idle';          // idle | focus | break
+let endAt = 0;
+let remainAtPause = null;    // ms remaining when paused (focus only)
+let startedAt = 0;
+let isLongBreak = false;
+let engineTimer = null;
+
+function s() { return Store.settings(); }
+
+function sessionsToday() { return Store.today().focus.sessions.filter(x => x.completed).length; }
+
+function remainMs() {
+  if (phase === 'idle') return s().focusMin * 60_000;
+  if (remainAtPause !== null) return remainAtPause;
+  return Math.max(0, endAt - Date.now());
+}
+
+function startEngine() {
+  if (engineTimer) return;
+  engineTimer = setInterval(() => {
+    if (remainAtPause !== null) return;               // paused
+    if (Date.now() >= endAt) completePhase();
+    else paint();
+  }, 500);
+}
+function stopEngine() { if (engineTimer) { clearInterval(engineTimer); engineTimer = null; } }
+
+function beginFocus() {
+  phase = 'focus';
+  remainAtPause = null;
+  startedAt = Date.now();
+  endAt = startedAt + s().focusMin * 60_000;
+  Bus.emit('focus:changed', { active: true, phase: 'focus' });
+  startEngine();
+  paint();
+}
+
+function beginBreak() {
+  const completed = sessionsToday();
+  isLongBreak = completed > 0 && completed % s().longBreakEvery === 0;
+  phase = 'break';
+  remainAtPause = null;
+  const mins = isLongBreak ? s().longBreakMin : s().shortBreakMin;
+  endAt = Date.now() + mins * 60_000;
+  Bus.emit('focus:changed', { active: false, phase: 'break' });
+  startEngine();
+  paint();
+}
+
+function goIdle() {
+  phase = 'idle';
+  remainAtPause = null;
+  stopEngine();
+  Bus.emit('focus:changed', { active: false, phase: 'idle' });
+  paint();
+}
+
+function completePhase() {
+  if (phase === 'focus') {
+    const minutes = s().focusMin;
+    Store.update('focus', f => {
+      f.sessions.push({ start: startedAt, end: Date.now(), minutes, completed: true });
+      f.minutes += minutes;
+    });
+    Notify.chime();
+    Notify.toast('Focus complete', 'Great block. Time for a real break — rest your eyes.', 'success', 5000);
+    beginBreak();
+  } else if (phase === 'break') {
+    Notify.chime();
+    Notify.toast('Break over', 'Ready for the next round when you are.', 'info', 4000);
+    goIdle();
   }
+}
 
-  function render() {
-    const page = Utils.$('page-focus');
-    const settings = Store.getSettings();
-    const data = Store.getFocusData();
-    const totalMin = data.totalFocusMinutes || 0;
-    const sessions = data.sessions || [];
-    const timerState = TimerEngine.getState('focus');
-    const remaining = timerState ? timerState.remaining : settings.focusDuration * 60;
-
-    const focusDur = settings.focusDuration;
-    const shortBreakDur = settings.shortBreak;
-    const longBreakDur = settings.longBreak;
-
-    let currentDuration;
-    if (_phase === 'shortBreak') currentDuration = shortBreakDur * 60;
-    else if (_phase === 'longBreak') currentDuration = longBreakDur * 60;
-    else currentDuration = focusDur * 60;
-
-    const circumference = 2 * Math.PI * 120;
-    const progress = timerState ? ((currentDuration - remaining) / currentDuration) : 0;
-    const dashoffset = circumference * (1 - progress);
-
-    page.innerHTML = `
-      <div class="section-header">
-        <h2>Focus Timer</h2>
-        <div class="section-header__actions">
-          <div class="tabs">
-            <button class="tab ${_phase === 'focus' ? 'active' : ''}" onclick="FocusModule.setPhase('focus')">Focus</button>
-            <button class="tab ${_phase === 'shortBreak' ? 'active' : ''}" onclick="FocusModule.setPhase('shortBreak')">Short Break</button>
-            <button class="tab ${_phase === 'longBreak' ? 'active' : ''}" onclick="FocusModule.setPhase('longBreak')">Long Break</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom: var(--space-8);">
-        <div class="pomodoro">
-          <!-- Timer Ring -->
-          <div class="pomodoro__ring">
-            <svg viewBox="0 0 260 260">
-              <circle class="pomodoro__ring-bg" cx="130" cy="130" r="120"/>
-              <circle class="pomodoro__ring-progress${_phase !== 'focus' ? ' pomodoro__ring-progress--break' : ''}" 
-                      cx="130" cy="130" r="120"
-                      style="stroke-dasharray:${circumference}; stroke-dashoffset:${dashoffset};" 
-                      id="focusRingProgress"/>
-            </svg>
-            <div class="pomodoro__center">
-              <div class="pomodoro__time" id="focusTimeDisplay">${Utils.formatTime(remaining)}</div>
-              <div class="pomodoro__phase">${_phase === 'focus' ? 'Focus' : _phase === 'shortBreak' ? 'Short Break' : 'Long Break'}</div>
-            </div>
-          </div>
-
-          <!-- Controls -->
-          <div class="pomodoro__controls">
-            ${!_running ? `
-              <button class="btn btn--primary btn--lg" onclick="FocusModule.start()">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Start
-              </button>
-            ` : `
-              <button class="btn btn--secondary btn--lg" onclick="FocusModule.pause()">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                Pause
-              </button>
-            `}
-            <button class="btn btn--ghost btn--lg" onclick="FocusModule.reset()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-              Reset
-            </button>
-          </div>
-
-          <!-- Stats -->
-          <div class="pomodoro__stats">
-            <div class="pomodoro__stat">
-              <div class="pomodoro__stat-value" style="color:var(--accent-cyan);">${_sessionsCompleted}</div>
-              <div class="pomodoro__stat-label">Sessions Today</div>
-            </div>
-            <div class="pomodoro__stat">
-              <div class="pomodoro__stat-value" style="color:var(--accent-green);">${totalMin}</div>
-              <div class="pomodoro__stat-label">Focus Minutes</div>
-            </div>
-            <div class="pomodoro__stat">
-              <div class="pomodoro__stat-value" style="color:var(--accent-violet);">${Math.round(totalMin / 60 * 10) / 10}</div>
-              <div class="pomodoro__stat-label">Hours Focused</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Session Configuration -->
-      <div class="grid grid--3 anim-stagger" style="margin-bottom: var(--space-8);">
-        <div class="card card--compact">
-          <div class="card__title" style="font-size:var(--text-sm); margin-bottom:var(--space-3);">Focus Duration</div>
-          <div style="display:flex; align-items:center; gap:var(--space-3);">
-            <input type="range" class="slider" min="5" max="90" value="${focusDur}" 
-                   onchange="FocusModule.updateSetting('focusDuration', this.value)" style="flex:1;">
-            <span style="font-size:var(--text-sm); font-weight:var(--weight-medium); width:40px; text-align:right;">${focusDur}m</span>
-          </div>
-        </div>
-        <div class="card card--compact">
-          <div class="card__title" style="font-size:var(--text-sm); margin-bottom:var(--space-3);">Short Break</div>
-          <div style="display:flex; align-items:center; gap:var(--space-3);">
-            <input type="range" class="slider" min="1" max="15" value="${shortBreakDur}" 
-                   onchange="FocusModule.updateSetting('shortBreak', this.value)" style="flex:1;">
-            <span style="font-size:var(--text-sm); font-weight:var(--weight-medium); width:40px; text-align:right;">${shortBreakDur}m</span>
-          </div>
-        </div>
-        <div class="card card--compact">
-          <div class="card__title" style="font-size:var(--text-sm); margin-bottom:var(--space-3);">Long Break</div>
-          <div style="display:flex; align-items:center; gap:var(--space-3);">
-            <input type="range" class="slider" min="5" max="30" value="${longBreakDur}" 
-                   onchange="FocusModule.updateSetting('longBreak', this.value)" style="flex:1;">
-            <span style="font-size:var(--text-sm); font-weight:var(--weight-medium); width:40px; text-align:right;">${longBreakDur}m</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Session History -->
-      <div class="section-header">
-        <h3>Today's Sessions</h3>
-      </div>
-      <div class="card">
-        ${sessions.length === 0 ? `
-          <div class="empty-state" style="padding:var(--space-8);">
-            <div style="font-size:48px; margin-bottom:var(--space-4);">⏱️</div>
-            <div class="empty-state__title">No sessions yet</div>
-            <div class="empty-state__text">Start your first focus session to begin tracking your deep work.</div>
-          </div>
-        ` : `
-          <div style="display:flex; flex-direction:column; gap:var(--space-2);">
-            ${sessions.map((s, i) => `
-              <div style="display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3) var(--space-4); background:var(--glass-bg); border-radius:var(--radius-md); border:1px solid var(--glass-border);">
-                <div style="width:32px; height:32px; border-radius:50%; background:var(--accent-cyan-dim); color:var(--accent-cyan); display:flex; align-items:center; justify-content:center; font-size:var(--text-sm); font-weight:var(--weight-bold);">${i + 1}</div>
-                <div style="flex:1;">
-                  <div style="font-size:var(--text-sm); font-weight:var(--weight-medium);">${s.duration || 25} min focus session</div>
-                  <div style="font-size:var(--text-xs); color:var(--text-tertiary);">${new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-                ${s.rating ? `<span class="badge badge--cyan">${s.rating}/5</span>` : ''}
-              </div>
-            `).join('')}
-          </div>
-        `}
-      </div>
-    `;
-
-    // Setup live timer updates
-    AppEvents.off('focus:tick', _liveUpdate);
-    AppEvents.on('focus:tick', _liveUpdate);
+function focusStreak() {
+  // consecutive days (ending today) with any focus minutes
+  let streak = 0;
+  if (Store.today().focus.minutes > 0) streak = 1;
+  const past = Store.pastDays(14).reverse(); // yesterday backward
+  if (Store.today().focus.minutes === 0) {
+    // streak can still be 0; but if today empty, count trailing days? define streak as ending today
+    return 0;
   }
-
-  function _liveUpdate({ remaining, total }) {
-    const timeEl = Utils.$('focusTimeDisplay');
-    if (timeEl) timeEl.textContent = Utils.formatTime(remaining);
-
-    const ringEl = Utils.$('focusRingProgress');
-    if (ringEl && total > 0) {
-      const circumference = 2 * Math.PI * 120;
-      const progress = (total - remaining) / total;
-      ringEl.style.strokeDashoffset = circumference * (1 - progress);
-    }
+  for (const { data } of past) {
+    if (data && data.focus.minutes > 0) streak++;
+    else break;
   }
+  return streak;
+}
 
-  function start() {
-    const settings = Store.getSettings();
-    let duration;
-    if (_phase === 'shortBreak') duration = settings.shortBreak * 60;
-    else if (_phase === 'longBreak') duration = settings.longBreak * 60;
-    else duration = settings.focusDuration * 60;
+/* ---------------- paint ---------------- */
+function paint() {
+  const ring = container?.querySelector('#focusRing');
+  if (!ring) return;
+  const total = phase === 'idle' ? s().focusMin * 60_000
+    : phase === 'focus' ? s().focusMin * 60_000
+    : (isLongBreak ? s().longBreakMin : s().shortBreakMin) * 60_000;
+  const remain = remainMs();
+  const label = phase === 'focus' ? (remainAtPause !== null ? 'paused' : 'focus')
+    : phase === 'break' ? (isLongBreak ? 'long break' : 'break') : 'ready';
+  Charts.ring(ring, {
+    value: phase === 'idle' ? 0 : (1 - remain / total) * 100,
+    size: 200, thickness: 13,
+    valueText: Utils.fmtClock(remain), label,
+    color: phase === 'break' ? getComputedStyle(document.documentElement).getPropertyValue('--m-lifestyle').trim() : undefined,
+  });
 
-    _running = true;
+  // controls + badge + dots
+  const controls = container.querySelector('#focusControls');
+  if (controls) controls.innerHTML = controlsHtml();
+  const badge = container.querySelector('#focusPhaseBadge');
+  if (badge) {
+    badge.className = `badge ${phase === 'focus' ? 'badge--accent' : phase === 'break' ? 'badge--warn' : ''}`;
+    badge.innerHTML = `<span class="dot"></span>${phase === 'focus' ? 'In focus' : phase === 'break' ? (isLongBreak ? 'Long break' : 'Short break') : 'Ready'}`;
+  }
+  const dots = container.querySelector('#focusDots');
+  if (dots) dots.innerHTML = dotsHtml();
+}
 
-    TimerEngine.create('focus', duration,
-      (remaining) => {
-        AppEvents.emit('focus:tick', { remaining, total: duration });
-      },
-      () => {
-        // Timer completed
-        _running = false;
-        if (_phase === 'focus') {
-          _sessionsCompleted++;
-          _totalFocusSec += duration;
+function dotsHtml() {
+  const per = s().longBreakEvery;
+  const total = sessionsToday();
+  // position within the current cycle; a just-completed full cycle shows all filled
+  const done = total > 0 && total % per === 0 ? per : total % per;
+  return Array.from({ length: per }, (_, i) =>
+    `<i class="focus-dot ${i < done ? 'is-done' : ''}"></i>`).join('');
+}
 
-          // Save session
-          const data = Store.getFocusData();
-          const sessions = data.sessions || [];
-          sessions.push({
-            duration: Math.round(duration / 60),
-            timestamp: Date.now(),
-            phase: 'focus'
+function controlsHtml() {
+  if (phase === 'idle') {
+    return `<button class="btn btn--primary btn--lg" data-start>${Utils.icon('play', 16)} Start focus</button>`;
+  }
+  if (phase === 'focus') {
+    const paused = remainAtPause !== null;
+    return `
+      <button class="btn btn--secondary btn--lg" data-toggle>${paused ? Utils.icon('play', 16) + ' Resume' : Utils.icon('pause', 16) + ' Pause'}</button>
+      <button class="btn btn--ghost btn--lg" data-end>${Utils.icon('stop', 16)} End session</button>`;
+  }
+  // break
+  return `
+    <button class="btn btn--secondary btn--lg" data-eyebreak>${Utils.icon('eye', 16)} Eye break</button>
+    <button class="btn btn--ghost btn--lg" data-skip-break>${Utils.icon('skip', 16)} Skip break</button>`;
+}
+
+function weekData() {
+  const days = [...Utils.pastDateKeys(6), Utils.dateKey()];
+  return days.map(date => {
+    const data = Store.day(date);
+    const v = data ? data.focus.minutes : 0;
+    return { label: Utils.weekdayShort(date), value: v, hint: Utils.fmtDuration(v) };
+  });
+}
+
+function render(el) {
+  container = el;
+  const d = Store.today();
+
+  el.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="page-head__title">
+          <div class="page-head__icon">${Utils.icon('timer', 20)}</div>
+          <div>
+            <h1>Deep Work</h1>
+            <div class="page-head__sub">Focus blocks that protect your flow</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card--pad focus-hero">
+      <span class="badge" id="focusPhaseBadge"><span class="dot"></span>Ready</span>
+      <div id="focusRing"></div>
+      <div class="focus-dots" id="focusDots"></div>
+      <div class="focus-controls" id="focusControls"></div>
+    </div>
+
+    <div class="card card--pad focus-suppress">
+      <div class="row">
+        ${Utils.icon('info', 15)}
+        <div class="grow small">
+          <b>${s().mode[0].toUpperCase() + s().mode.slice(1)} mode</b> ·
+          ${s().focusSuppression === 'soft' ? 'While focusing, only eye &amp; movement reminders stay on.'
+            : s().focusSuppression === 'hard' ? 'While focusing, only eye breaks stay on — everything else is paused.'
+            : 'Reminders are not suppressed during focus.'}
+        </div>
+        <button class="btn btn--ghost btn--sm" data-settings>${Utils.icon('gear', 13)} Adjust</button>
+      </div>
+    </div>
+
+    <div class="card-grid cols-3">
+      <div class="card card--pad"><div class="stat"><div class="stat__value">${Utils.fmtDuration(d.focus.minutes)}</div><div class="stat__label">focus today</div></div></div>
+      <div class="card card--pad"><div class="stat"><div class="stat__value">${sessionsToday()}</div><div class="stat__label">sessions done</div></div></div>
+      <div class="card card--pad"><div class="stat"><div class="stat__value">${focusStreak()}<span class="unit">d</span></div><div class="stat__label">focus streak</div></div></div>
+    </div>
+
+    <div class="section-title">Today's sessions</div>
+    <div class="card card--pad">
+      ${d.focus.sessions.length ? `<div class="list">${[...d.focus.sessions].reverse().slice(0, 8).map(x => `
+        <div class="list__item">
+          <div class="list__icon">${Utils.icon(x.completed ? 'check' : 'stop', 15)}</div>
+          <div class="list__body">
+            <div class="list__title">${Utils.fmtTime(x.start)} – ${Utils.fmtTime(x.end)}</div>
+            <div class="list__sub">${Utils.fmtDuration(x.minutes)} focused</div>
+          </div>
+          <span class="badge badge--${x.completed ? 'ok' : 'warn'}">${x.completed ? 'complete' : 'ended early'}</span>
+        </div>`).join('')}</div>`
+        : `<div class="empty">${Utils.icon('timer', 30)}<div class="empty__title">No sessions yet today</div><div class="empty__sub">Start a focus block above — non-critical nudges pause automatically.</div></div>`}
+    </div>
+
+    <div class="section-title">This week</div>
+    <div class="card card--pad">
+      <div class="card__title">${Utils.icon('chart', 16)} Focus minutes per day</div>
+      <canvas id="focusWeek"></canvas>
+    </div>`;
+
+  Charts.weekBars(el.querySelector('#focusWeek'), weekData(), { height: 130, unit: 'min' });
+  paint();
+
+  if (!el.dataset.bound) {
+    el.dataset.bound = '1';
+    el.addEventListener('click', async e => {
+      if (e.target.closest('[data-start]')) { beginFocus(); render(container); return; }
+      if (e.target.closest('[data-toggle]')) {
+        if (remainAtPause !== null) { endAt = Date.now() + remainAtPause; remainAtPause = null; }
+        else { remainAtPause = Math.max(0, endAt - Date.now()); }
+        paint();
+        return;
+      }
+      if (e.target.closest('[data-end]')) {
+        const ok = await Modal.confirm('End session?', 'This focus block will be logged as ended early.', 'End session', true);
+        if (!ok) return;
+        const worked = Math.round((Date.now() - startedAt) / 60_000);
+        if (worked >= 1) {
+          Store.update('focus', f => {
+            f.sessions.push({ start: startedAt, end: Date.now(), minutes: worked, completed: false });
+            f.minutes += worked;
           });
-          Store.updateFocusData({
-            sessions,
-            totalFocusMinutes: (data.totalFocusMinutes || 0) + Math.round(duration / 60)
-          });
-
-          Notifications.toast('Focus Session Complete! 🎉', `${Math.round(duration / 60)} minutes of deep work logged.`, 'success');
-
-          // Auto switch to break
-          if (_sessionsCompleted % (settings.longBreakAfter || 4) === 0) {
-            _phase = 'longBreak';
-          } else {
-            _phase = 'shortBreak';
-          }
-        } else {
-          // Break complete
-          Notifications.toast('Break Over', 'Ready for another focus session?', 'info');
-          _phase = 'focus';
         }
-        render();
-      },
-      { repeat: false }
-    );
-
-    render();
+        goIdle();
+        render(container);
+        return;
+      }
+      if (e.target.closest('[data-eyebreak]')) { Breaks.start('eye'); return; }
+      if (e.target.closest('[data-skip-break]')) { goIdle(); render(container); return; }
+      if (e.target.closest('[data-settings]')) { Bus.emit('nav:go', { id: 'settings' }); return; }
+    });
   }
+}
 
-  function pause() {
-    TimerEngine.pause('focus');
-    _running = false;
-    render();
-  }
+export default {
+  id: 'focus',
+  title: 'Deep Work',
+  icon: 'timer',
 
-  function reset() {
-    TimerEngine.stop('focus');
-    _running = false;
-    render();
-  }
+  render,
 
-  function setPhase(phase) {
-    if (_running) {
-      TimerEngine.stop('focus');
-      _running = false;
-    }
-    _phase = phase;
-    render();
-  }
+  onShow() {
+    unsub.push(Bus.on('store:changed', ({ scope }) => {
+      // don't fight the live timer: only re-render the static parts on relevant changes
+      if (['focus', 'settings'].includes(scope)) render(container);
+    }));
+  },
 
-  function updateSetting(key, value) {
-    Store.updateSettings({ [key]: parseInt(value) });
-    if (!_running) render();
-  }
+  onHide() { unsub.forEach(off => off()); unsub = []; },
 
-  function onShow() {
-    const data = Store.getFocusData();
-    _sessionsCompleted = (data.sessions || []).length;
-    render();
-  }
-
-  return { init, render, onShow, start, pause, reset, setPhase, updateSetting };
-})();
+  onTick() { paint(); },
+};

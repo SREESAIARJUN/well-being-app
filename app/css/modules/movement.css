@@ -1,0 +1,17 @@
+/* ============================================================
+   MOVEMENT module styles
+   ============================================================ */
+
+.move-status {
+  margin-top: var(--sp-3);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.move-status.is-standing { color: var(--m-movement); font-weight: 600; }
+
+.move-goal { display: flex; flex-direction: column; justify-content: center; }
+
+@media (max-width: 880px) {
+  .move-hero.cols-2 { grid-template-columns: 1fr; }
+}

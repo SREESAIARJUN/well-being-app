@@ -1,0 +1,19 @@
+/* ============================================================
+   MSK module styles
+   ============================================================ */
+
+.msk-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-4) var(--sp-6);
+  margin-top: var(--sp-3);
+}
+.msk-slider { display: flex; flex-direction: column; gap: 8px; }
+.msk-slider__head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: var(--text-sm); color: var(--text-2);
+}
+.msk-slider__head b {
+  color: var(--accent); font-variant-numeric: tabular-nums;
+  font-size: var(--text-md);
+}

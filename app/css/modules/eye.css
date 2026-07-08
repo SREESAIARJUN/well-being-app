@@ -1,0 +1,12 @@
+/* ============================================================
+   EYE module styles
+   ============================================================ */
+
+.exercise-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}

@@ -5,3 +5,10 @@ src-tauri/target/
 src-tauri/Cargo.lock
 .DS_Store
 Thumbs.db
+
+# Upstream Hugging Face reference clone (LFM2 WebGPU kernels demo).
+# The runtime the app actually ships is vendored at app/js/lib/lfm2_5.js.
+lfm2-webgpu-kernels/
+
+# Local build/log scratch
+*.log

@@ -1,237 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Ultra-premium health and productivity companion for desk workers. Integrates eye care, movement tracking, musculoskeletal health, mental wellness, and AI coaching.">
-  <title>WellBeing — Health &amp; Productivity Companion</title>
-
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Stylesheets -->
-  <link rel="stylesheet" href="css/design-system.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/modules.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WellBeing Companion</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/breaks.css" />
+  <link rel="stylesheet" href="css/modules/dashboard.css" />
+  <link rel="stylesheet" href="css/modules/eye.css" />
+  <link rel="stylesheet" href="css/modules/movement.css" />
+  <link rel="stylesheet" href="css/modules/msk.css" />
+  <link rel="stylesheet" href="css/modules/mental.css" />
+  <link rel="stylesheet" href="css/modules/lifestyle.css" />
+  <link rel="stylesheet" href="css/modules/focus.css" />
+  <link rel="stylesheet" href="css/modules/coach.css" />
+  <link rel="stylesheet" href="css/modules/settings.css" />
 </head>
 <body>
-  <div class="app" id="app">
-    <!-- ========== SIDEBAR ========== -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar__logo">
-        <div class="sidebar__logo-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
-          </svg>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand__mark" id="brandMark"></div>
+        <div class="brand__text">
+          <div class="brand__name">WellBeing</div>
+          <div class="brand__tag">desk-health companion</div>
         </div>
       </div>
-
-      <nav class="sidebar__nav" id="sidebarNav">
-        <!-- Dashboard -->
-        <button class="sidebar__item active" data-page="dashboard" id="nav-dashboard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1"/>
-            <rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/>
-            <rect x="14" y="14" width="7" height="7" rx="1"/>
-          </svg>
-          <span class="sidebar__tooltip">Dashboard</span>
+      <nav class="nav" id="nav" aria-label="Main"></nav>
+      <div class="side-foot">
+        <button class="side-score" id="sideScore" title="Open dashboard">
+          <div>
+            <div class="side-score__val" id="sideScoreVal">–</div>
+            <div class="side-score__label">health score</div>
+          </div>
         </button>
-
-        <!-- Eye Health -->
-        <button class="sidebar__item" data-page="eye-health" id="nav-eye-health">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-          <span class="sidebar__tooltip">Eye Health</span>
-        </button>
-
-        <!-- Movement -->
-        <button class="sidebar__item" data-page="movement" id="nav-movement">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 4v16"/>
-            <path d="M17 4v16"/>
-            <path d="M19 4H9.5a4.5 4.5 0 0 0 0 9H13"/>
-            <circle cx="5" cy="9" r="3"/>
-          </svg>
-          <span class="sidebar__tooltip">Movement</span>
-        </button>
-
-        <!-- Musculoskeletal -->
-        <button class="sidebar__item" data-page="musculoskeletal" id="nav-musculoskeletal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="5" r="3"/>
-            <path d="M12 8v8"/>
-            <path d="M8 12h8"/>
-            <path d="M9 20l3-4 3 4"/>
-          </svg>
-          <span class="sidebar__tooltip">Body &amp; Posture</span>
-        </button>
-
-        <!-- Mental Health -->
-        <button class="sidebar__item" data-page="mental-health" id="nav-mental-health">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a10 10 0 0 1 7.38 16.75"/>
-            <path d="M12 2a10 10 0 0 0-7.38 16.75"/>
-            <path d="M12 8v4l2 2"/>
-            <path d="M4.93 19.07l14.14-14.14"/>
-          </svg>
-          <span class="sidebar__tooltip">Mental Health</span>
-        </button>
-
-        <!-- Lifestyle -->
-        <button class="sidebar__item" data-page="lifestyle" id="nav-lifestyle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-          <span class="sidebar__tooltip">Lifestyle</span>
-        </button>
-
-        <div class="sidebar__divider"></div>
-
-        <!-- AI Coach -->
-        <button class="sidebar__item" data-page="ai-coach" id="nav-ai-coach">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            <path d="M8 10h.01"/>
-            <path d="M12 10h.01"/>
-            <path d="M16 10h.01"/>
-          </svg>
-          <span class="sidebar__tooltip">AI Coach</span>
-        </button>
-
-        <!-- Focus -->
-        <button class="sidebar__item" data-page="focus" id="nav-focus">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12,6 12,12 16,14"/>
-          </svg>
-          <span class="sidebar__tooltip">Focus Timer</span>
-        </button>
-      </nav>
-
-      <div class="sidebar__footer">
-        <!-- Settings -->
-        <button class="sidebar__item" data-page="settings" id="nav-settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-          </svg>
-          <span class="sidebar__tooltip">Settings</span>
-        </button>
+        <div class="seg seg--block" id="modeSeg" title="Intervention mode"></div>
       </div>
     </aside>
-
-    <!-- ========== MAIN CONTENT ========== -->
-    <main class="main">
-      <!-- Top Bar -->
-      <header class="topbar" id="topbar">
-        <div class="topbar__left">
-          <h1 class="topbar__title" id="pageTitle">Dashboard</h1>
-          <span class="topbar__subtitle" id="pageSubtitle">Your health at a glance</span>
-        </div>
-        <div class="topbar__right">
-          <button class="topbar__mode mode-focus" id="modeButton" title="Current mode">
-            <span class="topbar__mode-dot"></span>
-            <span id="modeName">Focus</span>
-          </button>
-          <span class="topbar__time" id="currentTime">00:00</span>
-        </div>
-      </header>
-
-      <!-- Content Area -->
-      <div class="content" id="contentArea">
-        <!-- Dashboard Page -->
-        <div class="page" id="page-dashboard"></div>
-
-        <!-- Eye Health Page -->
-        <div class="page page--hidden" id="page-eye-health"></div>
-
-        <!-- Movement Page -->
-        <div class="page page--hidden" id="page-movement"></div>
-
-        <!-- Musculoskeletal Page -->
-        <div class="page page--hidden" id="page-musculoskeletal"></div>
-
-        <!-- Mental Health Page -->
-        <div class="page page--hidden" id="page-mental-health"></div>
-
-        <!-- Lifestyle Page -->
-        <div class="page page--hidden" id="page-lifestyle"></div>
-
-        <!-- AI Coach Page -->
-        <div class="page page--hidden" id="page-ai-coach"></div>
-
-        <!-- Focus Page -->
-        <div class="page page--hidden" id="page-focus"></div>
-
-        <!-- Settings Page -->
-        <div class="page page--hidden" id="page-settings"></div>
-      </div>
-    </main>
+    <main class="main" id="main"></main>
   </div>
-
-  <!-- ========== OVERLAYS ========== -->
-  <!-- Break Overlay -->
-  <div class="break-overlay" id="breakOverlay">
-    <div class="break-overlay__ring">
-      <svg viewBox="0 0 100 100">
-        <circle class="break-overlay__ring-bg" cx="50" cy="50" r="45"/>
-        <circle class="break-overlay__ring-progress" cx="50" cy="50" r="45" id="breakRingProgress"/>
-      </svg>
-      <div class="break-overlay__time" id="breakTimeDisplay">20</div>
-    </div>
-    <h2 class="break-overlay__title" id="breakTitle">Time for an Eye Break</h2>
-    <p class="break-overlay__description" id="breakDescription">Look at something 20 feet away for 20 seconds</p>
-    <div class="break-overlay__actions">
-      <button class="btn btn--primary btn--lg" id="breakStartBtn">Start</button>
-      <button class="btn btn--ghost btn--lg" id="breakSkipBtn">Skip</button>
-    </div>
-  </div>
-
-  <!-- Modal Overlay -->
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal" id="modalContent">
-      <div class="modal__header">
-        <h3 class="modal__title" id="modalTitle">Modal</h3>
-        <button class="modal__close" id="modalClose">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal__body" id="modalBody"></div>
-      <div class="modal__footer" id="modalFooter"></div>
-    </div>
-  </div>
-
-  <!-- Toast Container -->
-  <div class="toast-container" id="toastContainer"></div>
-
-  <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/notifications.js"></script>
-  <script src="js/timer.js"></script>
-  <script src="js/modules/dashboard.js"></script>
-  <script src="js/modules/eye-health.js"></script>
-  <script src="js/modules/movement.js"></script>
-  <script src="js/modules/musculoskeletal.js"></script>
-  <script src="js/modules/mental-health.js"></script>
-  <script src="js/modules/lifestyle.js"></script>
-  <script src="js/modules/ai-coach.js"></script>
-  <script src="js/modules/focus.js"></script>
-  <script src="js/modules/settings.js"></script>
-  <script src="js/app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <title>WellBeing Reminder</title>
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/popup.css" />
+</head>
+<body>
+  <div class="pop" id="pop" style="display:none">
+    <div class="pop__main">
+      <div class="pop__icon" id="popIcon"></div>
+      <div class="pop__body">
+        <div class="pop__app">WellBeing</div>
+        <div class="pop__title" id="popTitle"></div>
+        <div class="pop__msg" id="popMsg"></div>
+      </div>
+      <button class="pop__close" id="popClose" aria-label="Dismiss"></button>
+    </div>
+    <div class="pop__actions" id="popActions"></div>
+    <div class="pop__timer"><i id="popTimer"></i></div>
+  </div>
+  <script type="module" src="js/popup.js"></script>
+</body>
+</html>

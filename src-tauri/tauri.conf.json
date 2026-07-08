@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "WellBeing",
-  "version": "0.1.0",
+  "productName": "WellBeing Companion",
+  "version": "1.0.0",
   "identifier": "com.wellbeing.app",
   "build": {
     "frontendDist": "../app"
@@ -10,12 +10,34 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "WellBeing Health & Productivity Companion",
-        "width": 450,
-        "height": 650,
+        "label": "main",
+        "title": "WellBeing Companion",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 960,
+        "minHeight": 640,
+        "center": true,
         "resizable": true,
-        "fullscreen": false,
-        "visible": false
+        "visible": false,
+        "backgroundColor": "#0a0e17"
+      },
+      {
+        "label": "popup",
+        "url": "popup.html",
+        "title": "WellBeing Reminder",
+        "width": 392,
+        "height": 148,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": false,
+        "closable": false,
+        "focus": false
       }
     ],
     "security": {
@@ -24,16 +46,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "android": {
-      "debugApplicationIdSuffix": ".debug"
-    }
+    ]
   }
 }

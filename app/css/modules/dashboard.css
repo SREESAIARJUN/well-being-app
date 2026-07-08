@@ -1,0 +1,38 @@
+/* ============================================================
+   DASHBOARD module styles
+   ============================================================ */
+
+.dash-score { display: flex; align-items: center; gap: var(--sp-5); }
+.dash-score__meta { min-width: 0; }
+
+.dash-pillars { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-2); }
+.dash-pillar {
+  display: flex; flex-direction: column; gap: 6px;
+  background: none; border: none; padding: 4px; margin: -4px;
+  border-radius: var(--r-sm); text-align: left; color: inherit;
+  transition: background var(--t-fast) var(--ease);
+}
+.dash-pillar:hover { background: var(--surface-2); }
+.dash-pillar__head { display: flex; justify-content: space-between; align-items: baseline;
+  font-size: var(--text-xs); color: var(--text-2); }
+.dash-pillar__head b { color: var(--text-1); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+
+.dash-insight { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.dash-insight .badge { align-self: flex-start; padding: 4px; }
+
+.dash-actions { gap: var(--sp-2); }
+
+.dash-legend {
+  display: flex; gap: var(--sp-4); margin-top: var(--sp-3);
+  font-size: var(--text-2xs); color: var(--text-3);
+}
+.dash-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.dash-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.dash-legend i.dot { width: 8px; height: 8px; border-radius: 50%; }
+
+@media (max-width: 880px) {
+  .dash-hero.cols-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .dash-score { flex-direction: column; text-align: center; }
+}

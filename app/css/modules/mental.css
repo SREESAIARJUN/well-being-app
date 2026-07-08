@@ -1,0 +1,39 @@
+/* ============================================================
+   MENTAL module styles
+   ============================================================ */
+
+.mental-sliders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-4) var(--sp-6);
+  margin-top: var(--sp-3);
+}
+
+.mental-sos { display: flex; align-items: center; gap: var(--sp-4); margin-top: var(--sp-4); }
+
+.mental-steps {
+  margin: var(--sp-2) 0 0;
+  padding-left: 18px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: var(--text-sm); color: var(--text-2);
+}
+
+.mental-journal { display: flex; flex-direction: column; gap: var(--sp-2); max-height: 220px; overflow-y: auto; }
+.mental-journal__item {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: 9px 11px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.mental-journal__item .small { user-select: text; cursor: auto; }
+
+#mentalJournalInput { user-select: text; resize: vertical; }
+
+.flash-highlight { animation: mentalFlash 1.4s var(--ease); }
+@keyframes mentalFlash {
+  0%, 100% { box-shadow: var(--shadow-1); }
+  30% { box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-2); border-color: var(--accent-border); }
+}
+
+@media (max-width: 1180px) {
+  .mental-sos { flex-direction: column; align-items: stretch; }
+}

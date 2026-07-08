@@ -1,20 +1,15 @@
 {
-  "name": "well-being",
+  "name": "wellbeing-companion",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "WellBeing Companion — privacy-first health & productivity desktop app for desk workers, with a fully on-device WebGPU AI coach.",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "license": "MIT",
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.11.1",
-    "@tauri-apps/plugin-autostart": "^2.5.1"
   }
 }

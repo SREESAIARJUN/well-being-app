@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wellbeing-frontend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tools/serve.mjs", "4173"],
+      "port": 4173
+    }
+  ]
+}

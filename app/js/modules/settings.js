@@ -1,318 +1,301 @@
 /* ============================================================
-   SETTINGS MODULE
+   SETTINGS — full control panel over every setting, plus
+   data & privacy management and system (Tauri) controls.
+   Inputs persist immediately; this page only re-renders on a
+   full data reset (scope '*'), never on its own writes.
    ============================================================ */
 
-const SettingsModule = (() => {
-  let _initialized = false;
+import { Utils } from '../core/utils.js';
+import { Bus } from '../core/bus.js';
+import { Store } from '../core/store.js';
+import { Tauri } from '../core/tauri.js';
+import { Notify } from '../core/notify.js';
+import { Modal } from '../core/modal.js';
 
-  function init() {
-    if (_initialized) return;
-    _initialized = true;
-    render();
+let container = null;
+let unsub = [];
+
+const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // index 0..6, 0=Sun
+
+function slider(id, label, min, max, step, value, fmt) {
+  return `
+    <div class="set-slider">
+      <div class="set-slider__head"><span>${Utils.esc(label)}</span><b data-out="${id}">${fmt ? fmt(value) : value}</b></div>
+      <input type="range" class="slider" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}">
+    </div>`;
+}
+
+function seg(name, options, active) {
+  return `<div class="seg" data-seg="${name}">${options.map(o =>
+    `<button class="seg__btn ${o.id === active ? 'is-active' : ''}" data-val="${o.id}">${Utils.esc(o.label)}</button>`).join('')}</div>`;
+}
+
+function toggleRow(id, label, sub, checked, opts = {}) {
+  return `
+    <label class="set-row ${opts.disabled ? 'is-disabled' : ''}">
+      <div class="grow">
+        <div class="list__title">${Utils.esc(label)}</div>
+        ${sub ? `<div class="list__sub">${sub}</div>` : ''}
+      </div>
+      <span class="toggle"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''} ${opts.disabled ? 'disabled' : ''}><i></i></span>
+    </label>`;
+}
+
+function render(el) {
+  container = el;
+  const st = Store.settings();
+
+  el.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="page-head__title">
+          <div class="page-head__icon">${Utils.icon('gear', 20)}</div>
+          <div>
+            <h1>Settings</h1>
+            <div class="page-head__sub">Everything is stored on this device</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Schedule</div>
+    <div class="card card--pad">
+      <div class="set-grid">
+        <div class="field"><label class="field__label">Work starts</label><input type="time" class="input" id="setWorkStart" value="${Utils.esc(st.workStart)}"></div>
+        <div class="field"><label class="field__label">Work ends</label><input type="time" class="input" id="setWorkEnd" value="${Utils.esc(st.workEnd)}"></div>
+      </div>
+      <div class="field mt-4">
+        <label class="field__label">Work days</label>
+        <div class="set-days" id="setWorkDays">
+          ${DOW.map((d, i) => `<button class="set-day ${st.workDays.includes(i) ? 'is-active' : ''}" data-day="${i}">${d}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Reminders &amp; goals</div>
+    <div class="card card--pad set-sliders">
+      ${slider('setEyeEvery', 'Eye break every', 10, 60, 5, st.eyeBreakEvery, v => `${v} min`)}
+      ${slider('setEyeSecs', 'Eye break length', 10, 60, 5, st.eyeBreakSecs, v => `${v} s`)}
+      ${slider('setBlink', 'Blink reminder every', 0, 30, 5, st.blinkEvery, v => v == 0 ? 'off' : `${v} min`)}
+      ${slider('setMove', 'Movement block every', 30, 60, 5, st.moveEvery, v => `${v} min`)}
+      ${slider('setHydrate', 'Hydration every', 30, 120, 10, st.hydrateEvery, v => `${v} min`)}
+      ${slider('setPosture', 'Posture check every', 30, 120, 10, st.postureEvery, v => `${v} min`)}
+      ${slider('setStandGoal', 'Standing goal', 60, 240, 15, st.standGoalMin, v => Utils.fmtDuration(Number(v)))}
+      ${slider('setWaterGoal', 'Water goal', 4, 15, 1, st.waterGoal, v => `${v} glasses`)}
+      <div class="set-slider">
+        <div class="set-slider__head"><span>Mood check-ins</span></div>
+        ${seg('moodCheck', [{ id: 'daily', label: 'Daily' }, { id: 'twice', label: 'Twice' }, { id: 'off', label: 'Off' }], st.moodCheck)}
+      </div>
+      <div class="set-slider">
+        <div class="set-slider__head"><span>Wind-down reminder</span></div>
+        <div class="row" style="gap:var(--sp-3)">
+          <input type="time" class="input" id="setWinddown" style="width:auto" value="${Utils.esc(st.winddownAt || '')}" ${st.winddownAt ? '' : 'disabled'}>
+          <label class="row" style="gap:8px;cursor:pointer"><span class="toggle"><input type="checkbox" id="setWinddownOn" ${st.winddownAt ? 'checked' : ''}><i></i></span><span class="small">On</span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Deep work</div>
+    <div class="card card--pad set-sliders">
+      ${slider('setFocusMin', 'Focus block', 15, 60, 5, st.focusMin, v => `${v} min`)}
+      ${slider('setShortBreak', 'Short break', 3, 15, 1, st.shortBreakMin, v => `${v} min`)}
+      ${slider('setLongBreak', 'Long break', 10, 30, 5, st.longBreakMin, v => `${v} min`)}
+      ${slider('setLongEvery', 'Long break every', 2, 6, 1, st.longBreakEvery, v => `${v} sessions`)}
+      <div class="set-slider">
+        <div class="set-slider__head"><span>Reminders during focus</span></div>
+        ${seg('focusSuppression', [{ id: 'soft', label: 'Soft' }, { id: 'hard', label: 'Hard' }, { id: 'off', label: 'Off' }], st.focusSuppression)}
+        <div class="list__sub mt-2" id="setSuppressHint"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Notifications</div>
+    <div class="card card--pad">
+      <div class="set-slider">
+        <div class="set-slider__head"><span>Reminder style</span></div>
+        ${seg('notifyStyle', [{ id: 'auto', label: 'Auto' }, { id: 'popup', label: 'Popup' }, { id: 'inapp', label: 'In-app' }], st.notifyStyle)}
+        <div class="list__sub mt-2" id="setNotifyHint"></div>
+      </div>
+      ${toggleRow('setSound', 'Sound', 'Play a soft chime with reminders', st.soundOn)}
+      <button class="btn btn--secondary btn--sm mt-3" id="setPreview">${Utils.icon('bell', 13)} Preview a reminder</button>
+    </div>
+
+    <div class="section-title">Appearance</div>
+    <div class="card card--pad">
+      <div class="set-slider">
+        <div class="set-slider__head"><span>Theme</span></div>
+        ${seg('theme', [{ id: 'dark', label: 'Dark' }, { id: 'light', label: 'Light' }, { id: 'auto', label: 'Auto' }], st.theme)}
+      </div>
+    </div>
+
+    <div class="section-title">Modules</div>
+    <div class="card card--pad">
+      ${[['eye', 'Eye Health'], ['movement', 'Movement'], ['msk', 'Posture & Body'], ['mental', 'Mind & Resilience'], ['lifestyle', 'Lifestyle'], ['focus', 'Deep Work'], ['coach', 'AI Coach']]
+        .map(([id, label]) => toggleRow(`setMod_${id}`, label, '', st.modules[id] !== false)).join('')}
+    </div>
+
+    <div class="section-title">System</div>
+    <div class="card card--pad">
+      ${toggleRow('setAutostart', 'Start with the computer', Tauri.isTauri ? 'Launches quietly to the tray on boot' : 'Available in the desktop app', st.autostart, { disabled: !Tauri.isTauri })}
+      ${Tauri.isTauri ? `<div class="row mt-3"><button class="btn btn--ghost btn--sm" id="setQuit">${Utils.icon('stop', 13)} Quit WellBeing</button></div>` : ''}
+    </div>
+
+    <div class="section-title">Data &amp; privacy</div>
+    <div class="card card--pad">
+      <div class="small muted mb-3">Everything WellBeing tracks lives on this device (~${Store.storageUsedKB()} KB used). The only time it touches the network is the optional one-time AI model download.</div>
+      <div class="row row--wrap" style="gap:var(--sp-2)">
+        <button class="btn btn--secondary btn--sm" id="setExport">${Utils.icon('export', 13)} Export data</button>
+        <button class="btn btn--secondary btn--sm" id="setImport">${Utils.icon('import', 13)} Import data</button>
+        <button class="btn btn--danger btn--sm" id="setErase">${Utils.icon('trash', 13)} Erase all data</button>
+        <input type="file" id="setImportFile" accept="application/json,.json" hidden>
+      </div>
+    </div>
+
+    <div class="card card--pad mt-4 set-about">
+      <div class="brand__mark">${Utils.icon('logo', 19)}</div>
+      <div>
+        <div class="list__title">WellBeing Companion · v1.0</div>
+        <div class="small muted">Built with Tauri + WebGPU. Privacy-first wellness guidance — not medical advice.</div>
+      </div>
+    </div>`;
+
+  updateHints();
+  bindHandlers(el);
+}
+
+function updateHints() {
+  const st = Store.settings();
+  const supp = { soft: 'Soft — eye & movement reminders stay on during focus.',
+    hard: 'Hard — only eye breaks stay on during focus.',
+    off: 'Off — reminders are never suppressed.' }[st.focusSuppression];
+  const notify = { auto: 'Auto — a desktop popup when the app is in the background, an in-app banner when it\'s focused.',
+    popup: 'Popup — always use the desktop popup window.',
+    inapp: 'In-app — only show banners inside the app.' }[st.notifyStyle];
+  const sh = container?.querySelector('#setSuppressHint');
+  const nh = container?.querySelector('#setNotifyHint');
+  if (sh) sh.textContent = supp;
+  if (nh) nh.textContent = notify;
+}
+
+function bindHandlers(el) {
+  // time + work days
+  el.querySelector('#setWorkStart').addEventListener('change', e => Store.updateSettings({ workStart: e.target.value }));
+  el.querySelector('#setWorkEnd').addEventListener('change', e => Store.updateSettings({ workEnd: e.target.value }));
+  el.querySelector('#setWorkDays').addEventListener('click', e => {
+    const btn = e.target.closest('[data-day]');
+    if (!btn) return;
+    const day = Number(btn.dataset.day);
+    const days = new Set(Store.settings().workDays);
+    if (days.has(day)) { if (days.size <= 1) return; days.delete(day); } else days.add(day);
+    Store.updateSettings({ workDays: [...days].sort() });
+    btn.classList.toggle('is-active');
+  });
+
+  // sliders: live label on input, persist on change
+  const SLIDER_MAP = {
+    setEyeEvery: ['eyeBreakEvery', v => `${v} min`],
+    setEyeSecs: ['eyeBreakSecs', v => `${v} s`],
+    setBlink: ['blinkEvery', v => v == 0 ? 'off' : `${v} min`],
+    setMove: ['moveEvery', v => `${v} min`],
+    setHydrate: ['hydrateEvery', v => `${v} min`],
+    setPosture: ['postureEvery', v => `${v} min`],
+    setStandGoal: ['standGoalMin', v => Utils.fmtDuration(Number(v))],
+    setWaterGoal: ['waterGoal', v => `${v} glasses`],
+    setFocusMin: ['focusMin', v => `${v} min`],
+    setShortBreak: ['shortBreakMin', v => `${v} min`],
+    setLongBreak: ['longBreakMin', v => `${v} min`],
+    setLongEvery: ['longBreakEvery', v => `${v} sessions`],
+  };
+  for (const [id, [key, fmt]] of Object.entries(SLIDER_MAP)) {
+    const input = el.querySelector('#' + id);
+    const out = el.querySelector(`[data-out="${id}"]`);
+    input.addEventListener('input', () => { out.textContent = fmt(input.value); });
+    input.addEventListener('change', () => Store.updateSettings({ [key]: Number(input.value) }));
   }
 
-  function render() {
-    const page = Utils.$('page-settings');
-    const settings = Store.getSettings();
-    const storageUsed = Store.storageUsed();
-    const storageKB = (storageUsed / 1024).toFixed(1);
+  // segmented controls
+  el.querySelectorAll('[data-seg]').forEach(segEl => {
+    segEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-val]');
+      if (!btn) return;
+      segEl.querySelectorAll('.seg__btn').forEach(b => b.classList.toggle('is-active', b === btn));
+      Store.updateSettings({ [segEl.dataset.seg]: btn.dataset.val });
+      updateHints();
+    });
+  });
 
-    page.innerHTML = `
-      <div class="section-header">
-        <h2>Settings</h2>
-      </div>
+  // wind-down
+  el.querySelector('#setWinddown').addEventListener('change', e => Store.updateSettings({ winddownAt: e.target.value }));
+  el.querySelector('#setWinddownOn').addEventListener('change', e => {
+    const timeEl = el.querySelector('#setWinddown');
+    if (e.target.checked) { timeEl.disabled = false; Store.updateSettings({ winddownAt: timeEl.value || '21:30' }); if (!timeEl.value) timeEl.value = '21:30'; }
+    else { timeEl.disabled = true; Store.updateSettings({ winddownAt: '' }); }
+  });
 
-      <!-- Profile -->
-      <div class="settings-section">
-        <div class="settings-section__title">📋 Work Schedule</div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Work Start Time</div>
-            <div class="setting-row__desc">When your workday typically begins</div>
-          </div>
-          <div class="setting-row__control">
-            <input type="time" class="input" value="${settings.workStart}" onchange="SettingsModule.update('workStart', this.value)" style="width:120px;">
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Work End Time</div>
-            <div class="setting-row__desc">When your workday typically ends</div>
-          </div>
-          <div class="setting-row__control">
-            <input type="time" class="input" value="${settings.workEnd}" onchange="SettingsModule.update('workEnd', this.value)" style="width:120px;">
-          </div>
-        </div>
-      </div>
+  // notifications
+  el.querySelector('#setSound').addEventListener('change', e => Store.updateSettings({ soundOn: e.target.checked }));
+  el.querySelector('#setPreview').addEventListener('click', () => Notify.reminder('eye', () => {}));
 
-      <!-- Eye Health Settings -->
-      <div class="settings-section">
-        <div class="settings-section__title">👁️ Eye Health</div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Break Interval</div>
-            <div class="setting-row__desc">How often to prompt for eye breaks (minutes)</div>
-          </div>
-          <div class="setting-row__control">
-            <div style="display:flex; align-items:center; gap:var(--space-2);">
-              <input type="range" class="slider" min="5" max="60" value="${settings.eyeBreakInterval}" 
-                     onchange="SettingsModule.update('eyeBreakInterval', parseInt(this.value)); this.nextElementSibling.textContent=this.value+'m'" style="width:100px;">
-              <span style="font-size:var(--text-sm); width:30px;">${settings.eyeBreakInterval}m</span>
-            </div>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Break Duration</div>
-            <div class="setting-row__desc">How long each eye break lasts (seconds)</div>
-          </div>
-          <div class="setting-row__control">
-            <div style="display:flex; align-items:center; gap:var(--space-2);">
-              <input type="range" class="slider" min="10" max="60" value="${settings.eyeBreakDuration}" 
-                     onchange="SettingsModule.update('eyeBreakDuration', parseInt(this.value)); this.nextElementSibling.textContent=this.value+'s'" style="width:100px;">
-              <span style="font-size:var(--text-sm); width:30px;">${settings.eyeBreakDuration}s</span>
-            </div>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Blink Reminders</div>
-            <div class="setting-row__desc">Subtle reminders to blink consciously</div>
-          </div>
-          <div class="setting-row__control">
-            <label class="toggle">
-              <input type="checkbox" ${settings.blinkReminder ? 'checked' : ''} onchange="SettingsModule.update('blinkReminder', this.checked)">
-              <span class="toggle__track"></span>
-              <span class="toggle__thumb"></span>
-            </label>
-          </div>
-        </div>
-      </div>
+  // modules
+  el.querySelectorAll('[id^="setMod_"]').forEach(input => {
+    input.addEventListener('change', () => Store.updateSettings({ modules: { [input.id.slice(7)]: input.checked } }));
+  });
 
-      <!-- Movement Settings -->
-      <div class="settings-section">
-        <div class="settings-section__title">🚶 Movement</div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Movement Interval</div>
-            <div class="setting-row__desc">Time between movement prompts (minutes)</div>
-          </div>
-          <div class="setting-row__control">
-            <div style="display:flex; align-items:center; gap:var(--space-2);">
-              <input type="range" class="slider" min="15" max="90" value="${settings.movementInterval}" 
-                     onchange="SettingsModule.update('movementInterval', parseInt(this.value)); this.nextElementSibling.textContent=this.value+'m'" style="width:100px;">
-              <span style="font-size:var(--text-sm); width:30px;">${settings.movementInterval}m</span>
-            </div>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Daily Standing Goal</div>
-            <div class="setting-row__desc">Target standing/activity minutes per day</div>
-          </div>
-          <div class="setting-row__control">
-            <div style="display:flex; align-items:center; gap:var(--space-2);">
-              <input type="range" class="slider" min="30" max="360" step="30" value="${settings.standingGoal}" 
-                     onchange="SettingsModule.update('standingGoal', parseInt(this.value)); this.nextElementSibling.textContent=this.value+'m'" style="width:100px;">
-              <span style="font-size:var(--text-sm); width:40px;">${settings.standingGoal}m</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Focus Settings -->
-      <div class="settings-section">
-        <div class="settings-section__title">⏱️ Focus Timer</div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Focus Duration</div>
-            <div class="setting-row__desc">Length of each focus session (minutes)</div>
-          </div>
-          <div class="setting-row__control">
-            <div style="display:flex; align-items:center; gap:var(--space-2);">
-              <input type="range" class="slider" min="5" max="90" value="${settings.focusDuration}" 
-                     onchange="SettingsModule.update('focusDuration', parseInt(this.value)); this.nextElementSibling.textContent=this.value+'m'" style="width:100px;">
-              <span style="font-size:var(--text-sm); width:30px;">${settings.focusDuration}m</span>
-            </div>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Long Break After</div>
-            <div class="setting-row__desc">Number of focus sessions before a long break</div>
-          </div>
-          <div class="setting-row__control">
-            <select class="input" onchange="SettingsModule.update('longBreakAfter', parseInt(this.value))" style="width:80px;">
-              ${[2, 3, 4, 5, 6].map(n => `<option value="${n}" ${settings.longBreakAfter === n ? 'selected' : ''}>${n}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lifestyle Settings -->
-      <div class="settings-section">
-        <div class="settings-section__title">🌿 Lifestyle</div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Hydration Goal</div>
-            <div class="setting-row__desc">Daily water intake target (glasses)</div>
-          </div>
-          <div class="setting-row__control">
-            <select class="input" onchange="SettingsModule.update('hydrationGoal', parseInt(this.value))" style="width:80px;">
-              ${[4, 6, 8, 10, 12].map(n => `<option value="${n}" ${settings.hydrationGoal === n ? 'selected' : ''}>${n}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Sleep Reminder Time</div>
-            <div class="setting-row__desc">When to prompt for winding down</div>
-          </div>
-          <div class="setting-row__control">
-            <input type="time" class="input" value="${settings.sleepReminder}" onchange="SettingsModule.update('sleepReminder', this.value)" style="width:120px;">
-          </div>
-        </div>
-      </div>
-
-      <!-- Notifications -->
-      <div class="settings-section">
-        <div class="settings-section__title">🔔 Notifications</div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Sound Effects</div>
-            <div class="setting-row__desc">Play sound when prompts appear</div>
-          </div>
-          <div class="setting-row__control">
-            <label class="toggle">
-              <input type="checkbox" ${settings.soundEnabled ? 'checked' : ''} onchange="SettingsModule.update('soundEnabled', this.checked)">
-              <span class="toggle__track"></span>
-              <span class="toggle__thumb"></span>
-            </label>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <div class="setting-row__label">Notification Style</div>
-            <div class="setting-row__desc">How break notifications appear</div>
-          </div>
-          <div class="setting-row__control">
-            <select class="input" onchange="SettingsModule.update('notificationStyle', this.value)" style="width:120px;">
-              <option value="overlay" ${settings.notificationStyle === 'overlay' ? 'selected' : ''}>Full Screen</option>
-              <option value="toast" ${settings.notificationStyle === 'toast' ? 'selected' : ''}>Toast Only</option>
-              <option value="both" ${settings.notificationStyle === 'both' ? 'selected' : ''}>Both</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Module Toggles -->
-      <div class="settings-section">
-        <div class="settings-section__title">📦 Modules</div>
-        <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-bottom:var(--space-3);">Enable or disable individual health modules</p>
-        ${Object.entries(settings.modules).map(([key, enabled]) => `
-          <div class="setting-row">
-            <div class="setting-row__info">
-              <div class="setting-row__label">${_moduleLabel(key)}</div>
-            </div>
-            <div class="setting-row__control">
-              <label class="toggle">
-                <input type="checkbox" ${enabled ? 'checked' : ''} onchange="SettingsModule.toggleModule('${key}', this.checked)">
-                <span class="toggle__track"></span>
-                <span class="toggle__thumb"></span>
-              </label>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-
-      <!-- Data Management -->
-      <div class="settings-section">
-        <div class="settings-section__title">💾 Data Management</div>
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-4);">
-          <span style="font-size:var(--text-sm); color:var(--text-secondary);">Storage used: <strong>${storageKB} KB</strong></span>
-        </div>
-        <div style="display:flex; gap:var(--space-3); flex-wrap:wrap;">
-          <button class="btn btn--secondary" onclick="SettingsModule.exportData()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Export Data (JSON)
-          </button>
-          <button class="btn btn--danger" onclick="SettingsModule.clearAllData()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Clear All Data
-          </button>
-        </div>
-      </div>
-
-      <!-- About -->
-      <div class="settings-section">
-        <div class="settings-section__title">ℹ️ About</div>
-        <div class="card card--compact" style="background:var(--bg-secondary);">
-          <h4 style="margin-bottom:var(--space-2);">WellBeing</h4>
-          <p style="font-size:var(--text-sm); color:var(--text-secondary); margin-bottom:var(--space-3);">Ultra-premium health & productivity companion for desk workers.</p>
-          <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-bottom:var(--space-2);">Version 1.0.0 · Built with vanilla HTML/CSS/JS</p>
-          <p style="font-size:var(--text-xs); color:var(--text-tertiary); margin-bottom:var(--space-3);">AI Coach powered by LFM-2.5-230M (Liquid AI) via Transformers.js</p>
-          <div class="disclaimer" style="font-size:var(--text-xs);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>This app provides general wellness guidance only. It is not a medical device or clinical tool. For health concerns, consult your healthcare provider.</span>
-          </div>
-        </div>
-      </div>
-    `;
+  // system
+  const autostart = el.querySelector('#setAutostart');
+  if (Tauri.isTauri) {
+    Tauri.getAutostart().then(on => { autostart.checked = on; });
+    autostart.addEventListener('change', async () => {
+      const result = await Tauri.setAutostart(autostart.checked);
+      autostart.checked = !!result;
+      Store.updateSettings({ autostart: !!result });
+      Notify.toast('Autostart', result ? 'WellBeing will start with your computer.' : 'Autostart disabled.', 'info', 2400);
+    });
+    el.querySelector('#setQuit')?.addEventListener('click', () => Tauri.quit());
   }
 
-  function _moduleLabel(key) {
-    const labels = {
-      eyeHealth: '👁️ Eye Health',
-      movement: '🚶 Movement & Sedentary',
-      musculoskeletal: '🏋️ Body & Posture',
-      mentalHealth: '🧠 Mental Health',
-      lifestyle: '🌿 Lifestyle & Recovery',
-      aiCoach: '🤖 AI Coach',
-      focus: '⏱️ Focus Timer'
-    };
-    return labels[key] || key;
-  }
-
-  function update(key, value) {
-    Store.updateSettings({ [key]: value });
-    Notifications.toast('Setting Updated', `${key} has been updated.`, 'info', 2000);
-  }
-
-  function toggleModule(key, enabled) {
-    const settings = Store.getSettings();
-    const modules = { ...settings.modules, [key]: enabled };
-    Store.updateSettings({ modules });
-    Notifications.toast('Module Updated', `${_moduleLabel(key)} has been ${enabled ? 'enabled' : 'disabled'}.`, 'info', 2000);
-  }
-
-  function exportData() {
-    const data = Store.exportData();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  // data & privacy
+  el.querySelector('#setExport').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(Store.exportAll(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `wellbeing-export-${Utils.today()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    Notifications.toast('Data Exported', 'Your data has been downloaded as JSON.', 'success');
-  }
+    const a = Utils.el('a', { href: url, download: `wellbeing-export-${Utils.dateKey()}.json` });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    Notify.toast('Exported', 'Your data was saved as a JSON file.', 'success', 2600);
+  });
+  const fileInput = el.querySelector('#setImportFile');
+  el.querySelector('#setImport').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        Store.importAll(JSON.parse(reader.result));
+        Notify.toast('Imported', 'Your data was restored.', 'success', 2800);
+      } catch (err) {
+        Notify.toast('Import failed', String(err.message || err), 'error', 4200);
+      }
+      fileInput.value = '';
+    };
+    reader.readAsText(file);
+  });
+  el.querySelector('#setErase').addEventListener('click', async () => {
+    const ok = await Modal.confirm('Erase all data?', 'This permanently deletes every check-in, log, journal entry, and setting on this device. This cannot be undone.', 'Erase everything', true);
+    if (ok) { Store.clearAll(); Notify.toast('Erased', 'All data has been cleared.', 'info', 2600); }
+  });
+}
 
-  function clearAllData() {
-    Notifications.modal(
-      '⚠️ Clear All Data',
-      '<p style="color:var(--text-secondary);">This will permanently delete all your health data, settings, and chat history. This action cannot be undone.</p>',
-      [
-        { label: 'Cancel', value: 'cancel' },
-        { label: 'Delete Everything', primary: true, value: 'confirm', action: () => {
-          Store.clear();
-          Notifications.toast('Data Cleared', 'All data has been permanently deleted.', 'warning');
-          setTimeout(() => location.reload(), 1000);
-        }}
-      ]
-    );
-  }
+export default {
+  id: 'settings',
+  title: 'Settings',
+  icon: 'gear',
 
-  function onShow() { render(); }
+  render,
 
-  return { init, render, onShow, update, toggleModule, exportData, clearAllData };
-})();
+  onShow() {
+    // only rebuild on a full reset — never on our own writes (would fight inputs)
+    unsub.push(Bus.on('store:changed', ({ scope }) => { if (scope === '*') render(container); }));
+  },
+
+  onHide() { unsub.forEach(off => off()); unsub = []; },
+};
