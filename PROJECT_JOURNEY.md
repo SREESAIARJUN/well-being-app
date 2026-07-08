@@ -60,4 +60,22 @@ Today, the WellBeing Companion is a fully packaged `v0.1` desktop application fe
 - **Focus Timer:** Pomodoro-style deep work tracking that pauses non-critical health reminders to protect your flow state.
 
 ---
+
+## Problems Faced & Key Learnings
+
+Building a desktop app with an embedded local AI presented several unique challenges:
+
+1. **The "Robotic" Local AI Problem**
+   - **Problem:** When we initially fed the user's raw health data to the small 230M parameter model in a single prompt (RAG approach), the AI struggled. It tried to parse the data rather than converse, resulting in repetitive, robotic responses, or outright refusing to answer due to its training biases.
+   - **Learning:** Tiny models cannot handle complex data parsing and conversational nuance simultaneously. By building a JavaScript Agentic Orchestrator to handle the deterministic data logic, we freed the AI to do what it does best: generate natural, conversational text.
+
+2. **Window Management in Tauri v2**
+   - **Problem:** We wanted the app to run invisibly in the system tray but "pop out" automatically when it was time for an eye break. Tauri v2 completely overhauled its window management API, moving it out of the global `window` object for security reasons, which broke our initial pop-out logic.
+   - **Learning:** Instead of relying on injected global variables that change between framework versions, we learned to communicate directly with the Rust backend using the robust `core.invoke` channel (`window.__TAURI__.core.invoke`). This guaranteed stable, native window management without exposing unnecessary APIs.
+
+3. **Background Notification Annoyance**
+   - **Problem:** Getting a pop-up window while you are deep in focus can be incredibly jarring.
+   - **Learning:** We tied our notification logic directly to the Focus Timer. When a user is in "Focus Mode," non-critical health reminders are suppressed. Furthermore, when normal toasts do pop out from the tray, they intelligently auto-hide themselves if the user doesn't interact with them, completely preserving the user's flow state.
+
+---
 *Built with ❤️ using Vanilla JS, WebGPU, Rust, and Tauri.*
