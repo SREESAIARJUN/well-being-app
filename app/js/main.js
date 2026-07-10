@@ -230,6 +230,13 @@ async function boot() {
   });
 
   maybeOnboard();
+
+  // Runtime self-test harness (only when launched with --selftest).
+  if (Tauri.isTauri) {
+    Tauri.invoke('is_selftest')
+      .then(on => { if (on) return import('./selftest.js').then(m => m.runSelfTest()); })
+      .catch(() => {});
+  }
 }
 
 document.addEventListener('DOMContentLoaded', boot);

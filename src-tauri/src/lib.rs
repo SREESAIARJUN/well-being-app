@@ -120,6 +120,27 @@ fn get_autostart(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
 }
 
+/// Whether the app was launched with `--selftest` (debug runtime verification).
+#[tauri::command]
+fn is_selftest() -> bool {
+    std::env::args().any(|a| a == "--selftest")
+}
+
+/// Append a line to the self-test log so an external harness can read results
+/// from a running native app (temp_dir/wellbeing-selftest.log).
+#[tauri::command]
+fn selftest_log(line: String) -> Result<(), String> {
+    use std::io::Write;
+    let path = std::env::temp_dir().join("wellbeing-selftest.log");
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    writeln!(f, "{}", line).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -141,6 +162,8 @@ pub fn run() {
             popup_action,
             set_autostart,
             get_autostart,
+            is_selftest,
+            selftest_log,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

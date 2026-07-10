@@ -73,6 +73,18 @@ npm run build               # release build + installers (NSIS / MSI on Windows)
 
 Installers are emitted under `src-tauri/target/release/bundle/`.
 
+### Verify a build
+
+The app ships a runtime self-test. Launch it with `--selftest` and it will exercise the
+reminder popup, autostart round-trip, and the real on-device AI (WebGPU model load +
+generation), writing each step to `%TEMP%\wellbeing-selftest.log`:
+
+```bash
+"wellbeing.exe" --selftest
+```
+
+Without the flag the harness is inert.
+
 ## Privacy
 
 WellBeing Companion is **on-device by design**. Health check-ins, journals, and settings

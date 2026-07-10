@@ -120,6 +120,20 @@ The frontend was verified end-to-end in a browser (every page renders with zero 
 errors; water logging, guided breaks, the focus-timer lifecycle, check-ins, the AI coach,
 reminders, and theme switching were all exercised), and the native shell builds cleanly.
 
+The historically-fragile native paths were then verified **at runtime** with a built-in
+`--selftest` harness (`app/js/selftest.js` + two small Rust commands) that drives the real
+desktop app and logs each step. Confirmed on Windows 11 with WebView2:
+
+- **On-device AI actually runs.** WebGPU is exposed in WebView2; the LFM2.5-230M model
+  downloaded (~210 MB, ~19 s), warmed up, and generated a real reply
+  (*"Take a moment to breathe, and remember that small steps make big changes."*).
+- **The reminder popup works** — it appears **visible and always-on-top, positioned
+  bottom-right of the monitor work area, and does NOT steal foreground focus** (verified via
+  Win32 window inspection while a video call held the foreground). This is the exact
+  behaviour the old build could never get right.
+- **Autostart** enable/disable round-trips correctly, and **close-to-tray** hides the window
+  while keeping the process alive in the tray.
+
 **Learning:** when the foundation is wrong, the fastest path forward is an honest teardown
 plus a written contract — not another patch on top of the crack.
 

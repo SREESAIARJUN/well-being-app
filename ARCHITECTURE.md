@@ -270,3 +270,7 @@ send trash export import zap target book edit list`
 - Frontend runs standalone in a browser (`tools/serve.mjs` static server) — Tauri
   bridge degrades gracefully; use for fast UI iteration.
 - `cargo check` in `src-tauri`, then `npm run build` for the installer.
+- Runtime self-test: launch the native app with `--selftest` (`app/js/selftest.js`,
+  gated by the Rust `is_selftest` command). It exercises the reminder popup, the
+  autostart round-trip, and a real WebGPU AI load+generate, logging each step to
+  `temp_dir/wellbeing-selftest.log` via the `selftest_log` command. Inert without the flag.
