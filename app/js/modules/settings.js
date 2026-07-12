@@ -153,7 +153,7 @@ function render(el) {
     <div class="card card--pad mt-4 set-about">
       <div class="brand__mark">${Utils.icon('logo', 19)}</div>
       <div>
-        <div class="list__title">WellBeing Companion · v1.0</div>
+        <div class="list__title">WellBeing Companion · v1.1</div>
         <div class="small muted">Built with Tauri + WebGPU. Privacy-first wellness guidance — not medical advice.</div>
       </div>
     </div>`;

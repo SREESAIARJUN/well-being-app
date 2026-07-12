@@ -30,6 +30,12 @@ let container = null;
 let unsub = [];
 
 function upcomingHtml() {
+  const pausedUntil = Scheduler.pausedUntil();
+  if (pausedUntil && pausedUntil > Date.now()) {
+    return `<div class="empty">${Utils.icon('snooze', 30)}
+      <div class="empty__title">Reminders paused</div>
+      <div class="empty__sub">Quiet until ${Utils.esc(Utils.fmtTime(pausedUntil))} — resume any time from the sidebar.</div></div>`;
+  }
   const items = Scheduler.next().slice(0, 5);
   if (!items.length) {
     return `<div class="empty">${Utils.icon('check', 30)}
@@ -57,6 +63,59 @@ function scoreWeekData() {
   });
 }
 
+function dayHasActivity(d) {
+  if (!d) return false;
+  return (d.eye.breaksTaken + d.eye.breaksSkipped + d.eye.exercisesDone) > 0 ||
+    d.movement.standingMin > 0 || d.movement.blocksDone > 0 ||
+    d.msk.checkins.length > 0 || d.mental.checkins.length > 0 ||
+    d.lifestyle.water > 0 || d.focus.minutes > 0;
+}
+
+/** consecutive active days ending today */
+function activityStreak() {
+  if (!dayHasActivity(Store.today())) return 0;
+  let streak = 1;
+  for (const { data } of Store.pastDays(30).reverse()) {
+    if (dayHasActivity(data)) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function weeklyTotals() {
+  const days = [...Store.pastDays(6).map(x => x.data), Store.today()];
+  const t = { breaks: 0, standMin: 0, water: 0, focusMin: 0 };
+  for (const d of days) {
+    if (!d) continue;
+    t.breaks += d.eye.breaksTaken;
+    t.standMin += d.movement.standingMin;
+    t.water += d.lifestyle.water;
+    t.focusMin += d.focus.minutes;
+  }
+  return t;
+}
+
+/** animate the big score ring from its last shown value (full sweep on first paint) */
+let lastRingValue = 0;
+function animateScoreRing(host, target) {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const draw = v => Charts.ring(host, {
+    value: v, size: 168, thickness: 12,
+    valueText: Math.round(v), label: 'out of 100',
+  });
+  const from = lastRingValue;
+  lastRingValue = target;
+  if (reduced || from === target) { draw(target); return; }
+  const t0 = performance.now(), dur = from === 0 ? 700 : 350;
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    draw(from + (target - from) * eased);
+    if (p < 1 && host.isConnected) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function render(el) {
   container = el;
   const s = Store.settings();
@@ -64,6 +123,9 @@ function render(el) {
   const pillars = Score.pillars() || {};
   const composite = Score.composite();
   const insights = Score.insights();
+
+  const streak = activityStreak();
+  const week = weeklyTotals();
 
   el.innerHTML = `
     <div class="page-head">
@@ -75,6 +137,9 @@ function render(el) {
             <div class="page-head__sub">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
           </div>
         </div>
+      </div>
+      <div class="page-head__actions">
+        ${streak > 1 ? `<span class="chip chip--accent" title="Consecutive days with logged activity">${Utils.icon('flame', 13)} ${streak}-day streak</span>` : ''}
       </div>
     </div>
 
@@ -143,17 +208,29 @@ function render(el) {
       </div>
     </div>
 
-    <div class="section-title">7-day score</div>
-    <div class="card card--pad">
+    <div class="section-title">This week</div>
+    <div class="card-grid cols-4 dash-week">
+      <div class="card card--pad"><div class="stat">
+        <div class="stat__value">${week.breaks}</div><div class="stat__label">eye breaks</div>
+      </div></div>
+      <div class="card card--pad"><div class="stat">
+        <div class="stat__value">${Utils.fmtDuration(week.standMin)}</div><div class="stat__label">standing</div>
+      </div></div>
+      <div class="card card--pad"><div class="stat">
+        <div class="stat__value">${week.water}</div><div class="stat__label">glasses of water</div>
+      </div></div>
+      <div class="card card--pad"><div class="stat">
+        <div class="stat__value">${Utils.fmtDuration(week.focusMin)}</div><div class="stat__label">deep work</div>
+      </div></div>
+    </div>
+
+    <div class="card card--pad mt-4">
       <div class="card__title">${Utils.icon('chart', 16)} Composite health score</div>
       <div class="card__sub">Hover a bar for the day's score</div>
       <canvas id="dashScoreWeek"></canvas>
     </div>`;
 
-  Charts.ring(el.querySelector('#dashScoreRing'), {
-    value: composite, size: 168, thickness: 12,
-    valueText: composite, label: 'out of 100',
-  });
+  animateScoreRing(el.querySelector('#dashScoreRing'), composite);
   Charts.dayTimeline(el.querySelector('#dashTimeline'), d.movement.segments, d.breaks, {
     startMin: Utils.parseHM(s.workStart), endMin: Utils.parseHM(s.workEnd),
   });

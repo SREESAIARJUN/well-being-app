@@ -42,6 +42,14 @@ let lastFiredAt = 0;
 let focusActive = false;
 let tickHandle = null;
 let dayKey = null;
+let pausedUntil = 0;              // DND: epochMs; 0 = not paused
+let intervalSnapshot = '';        // re-arm only when interval-relevant settings change
+
+function snapshotIntervals() {
+  const s = settings();
+  return [s.eyeBreakEvery, s.blinkEvery, s.moveEvery, s.hydrateEvery, s.postureEvery,
+    s.mode, s.workStart, s.workEnd, s.workDays.join('')].join('|');
+}
 
 function settings() { return Store.settings(); }
 
@@ -131,6 +139,16 @@ function tick() {
     }
   }
 
+  // DND pause: hold everything; on expiry re-arm so the user isn't hit with
+  // a backlog of stale reminders the moment the pause lifts.
+  if (pausedUntil) {
+    if (now < pausedUntil) return;
+    pausedUntil = 0;
+    armAll();
+    Bus.emit('scheduler:paused', { until: 0 });
+    return;
+  }
+
   if (now - lastFiredAt < MIN_GAP_MS) return; // spacing guard — due kinds stay due
 
   const due = [];
@@ -181,14 +199,34 @@ export const Scheduler = {
   init() {
     dayKey = Utils.dateKey();
     armAll();
-    Bus.on('store:changed', ({ scope }) => { if (scope === 'settings') armAll(); });
+    intervalSnapshot = snapshotIntervals();
+    Bus.on('store:changed', ({ scope }) => {
+      if (scope !== 'settings' && scope !== '*') return;
+      // only reset countdowns when a setting that shapes them changed —
+      // toggling the theme or sound must NOT restart your eye-break timer
+      const snap = snapshotIntervals();
+      if (snap !== intervalSnapshot) { intervalSnapshot = snap; armAll(); }
+    });
     Bus.on('focus:changed', ({ active }) => { focusActive = !!active; });
     if (tickHandle) clearInterval(tickHandle);
     tickHandle = setInterval(tick, 1000);
   },
 
+  /* ---------- DND (pause all reminders) ---------- */
+  pauseFor(minutes) {
+    pausedUntil = Date.now() + minutes * 60_000;
+    Bus.emit('scheduler:paused', { until: pausedUntil });
+  },
+  resume() {
+    pausedUntil = 0;
+    armAll();
+    Bus.emit('scheduler:paused', { until: 0 });
+  },
+  pausedUntil() { return pausedUntil; },
+
   /** upcoming reminders, soonest first (dashboard widget) */
   next() {
+    if (pausedUntil && Date.now() < pausedUntil) return [];
     const out = [];
     const now = Date.now();
     for (const kind of INTERVAL_KINDS) {

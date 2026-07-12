@@ -258,6 +258,13 @@ export const Charts = {
       });
       ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.stroke();
+      // point markers — without these an isolated value (e.g. a user's very
+      // first check-in) draws nothing at all
+      ctx.fillStyle = s.color;
+      s.values.forEach((v, i) => {
+        if (v === null || v === undefined) return;
+        ctx.beginPath(); ctx.arc(X(i), Y(v), 2.6, 0, Math.PI * 2); ctx.fill();
+      });
     }
 
     canvas.onmousemove = e => {

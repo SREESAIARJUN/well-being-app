@@ -28,6 +28,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   notifyStyle: 'auto',
   soundOn: true,
   autostart: false,
+  coachAutoLoad: false,
   retentionDays: 90,
   modules: { eye: true, movement: true, msk: true, mental: true, lifestyle: true, focus: true, coach: true },
 });

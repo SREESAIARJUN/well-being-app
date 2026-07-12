@@ -32,10 +32,13 @@ export const Score = {
 
     const out = {};
 
-    // Eye: adherence to expected breaks (or taken/(taken+skipped) for past days)
-    const expected = isToday ? expectedEyeBreaks(s) : Math.max(1, d.eye.breaksTaken + d.eye.breaksSkipped);
-    if (expected <= 0) out.eye = null;
-    else out.eye = Math.round(Utils.clamp(d.eye.breaksTaken / expected, 0, 1) * 100);
+    // Eye: adherence to expected breaks. Null until there's a signal (a break
+    // taken, skipped, or ignored) so a fresh day reads neutral instead of 0 —
+    // once reminders start being answered or dodged, adherence kicks in.
+    const eyeSignals = d.eye.breaksTaken + d.eye.breaksSkipped;
+    const expected = isToday ? expectedEyeBreaks(s) : Math.max(1, eyeSignals);
+    if (expected <= 0 || eyeSignals === 0) out.eye = null;
+    else out.eye = Math.round(Utils.clamp(d.eye.breaksTaken / Math.max(expected, eyeSignals), 0, 1) * 100);
 
     // Movement: standing minutes vs goal, blocks adherence blended in
     const standPart = Utils.clamp(d.movement.standingMin / Math.max(30, s.standGoalMin), 0, 1);

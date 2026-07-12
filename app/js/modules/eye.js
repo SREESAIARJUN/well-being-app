@@ -44,11 +44,14 @@ function renderCountdown() {
     Charts.ring(host, { value: 0, size: 150, thickness: 10, valueText: '—', label: 'paused' });
     return;
   }
+  // beyond ~2 intervals means we're outside work hours (weekend/evening):
+  // show a humane duration instead of a nonsense "574:13" countdown
+  const farAway = remain > total * 2;
   Charts.ring(host, {
-    value: (1 - Utils.clamp(remain / total, 0, 1)) * 100,
+    value: farAway ? 0 : (1 - Utils.clamp(remain / total, 0, 1)) * 100,
     size: 150, thickness: 10,
-    valueText: Utils.fmtClock(remain),
-    label: 'until next break',
+    valueText: farAway ? Utils.fmtDuration(remain / 60_000) : Utils.fmtClock(remain),
+    label: farAway ? 'next work block' : 'until next break',
   });
 }
 

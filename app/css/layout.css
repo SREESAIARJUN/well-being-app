@@ -120,6 +120,18 @@
 }
 .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 
+.side-mode-label {
+  font-size: var(--text-2xs);
+  color: var(--text-3);
+  text-align: center;
+  margin-top: -6px;
+}
+
+#dndBtn.is-paused {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
 /* narrow window: icon-only sidebar */
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 64px 1fr; }

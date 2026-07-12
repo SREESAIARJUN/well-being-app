@@ -144,6 +144,7 @@ Store.storageUsedKB()
   notifyStyle: 'auto',              // 'auto' (popup when unfocused, in-app when focused) | 'popup' | 'inapp'
   soundOn: true,
   autostart: false,                 // mirrored to OS via Tauri
+  coachAutoLoad: false,             // auto-load the AI model when opening the coach page
   retentionDays: 90,
   modules: { eye:true, movement:true, msk:true, mental:true,
              lifestyle:true, focus:true, coach:true },
@@ -193,7 +194,14 @@ Scheduler.done(kind)             // user completed → reschedule from now
 Scheduler.skip(kind)             // reschedule + log skip
 Scheduler.reset(kind)            // recompute deadline after settings change (auto on store:changed)
 Scheduler.setFocusActive(bool)   // called by focus module via Bus
+Scheduler.pauseFor(min)          // DND: hold ALL reminders; re-arms intervals on expiry
+Scheduler.resume()               // end DND early (also re-arms)
+Scheduler.pausedUntil()          // epochMs or 0; next() returns [] while paused
 ```
+
+Deadlines re-arm on settings change ONLY when an interval-shaping setting
+(intervals, mode, work hours/days) actually changed — cosmetic settings must not
+reset running countdowns. DND emits Bus `scheduler:paused` `{until}` (0 = resumed).
 
 On `reminder:due`, **notify.js** decides routing (nobody else calls popups directly):
 window focused → in-app banner toast with action buttons; unfocused/hidden + Tauri →

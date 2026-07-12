@@ -87,12 +87,15 @@ function finish(completed) {
   active = null;
 
   const logKind = kind === 'move' ? 'move' : kind === 'eye' ? 'eye' : null;
-  if (logKind) Store.logBreak(logKind, completed ? 'done' : 'skipped');
-  else Store.update(kind === 'breathing' || kind === 'grounding' ? 'mental' : kind === 'posture' ? 'msk' : 'eye', s => {
-    if (kind === 'breathing' || kind === 'grounding') { if (completed) s.interventionsDone++; }
-    else if (kind === 'posture') { if (completed) s.postureChecks++; }
-    else if (completed) s.exercisesDone++;
-  });
+  if (logKind) {
+    Store.logBreak(logKind, completed ? 'done' : 'skipped');
+  } else if (completed) {
+    // credit the break to its home module
+    if (kind === 'breathing' || kind === 'grounding') Store.update('mental', m => { m.interventionsDone++; });
+    else if (kind === 'posture') Store.update('msk', m => { m.postureChecks++; });
+    else if (kind === 'stretch') Store.update('msk', m => { m.exercisesDone++; });
+    else Store.update('eye', e => { e.exercisesDone++; }); // palming, figure8
+  }
 
   Bus.emit('break:done', { kind, completed });
   if (completed) Notify.toast('Nice work', 'Break completed — back to it.', 'success', 3000);

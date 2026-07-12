@@ -98,6 +98,21 @@ function buildModeSeg() {
 function syncModeSeg() {
   const mode = Store.settings().mode;
   Utils.$$('#modeSeg .seg__btn').forEach(b => b.classList.toggle('is-active', b.dataset.mode === mode));
+  const label = Utils.$('#modeLabel');
+  if (label) label.textContent = `${mode} mode`;
+}
+
+/* ---------------- DND (pause reminders) ---------------- */
+function syncDnd() {
+  const btn = Utils.$('#dndBtn');
+  if (!btn) return;
+  const until = Scheduler.pausedUntil();
+  const paused = until && until > Date.now();
+  btn.classList.toggle('is-paused', !!paused);
+  btn.innerHTML = paused
+    ? `${Utils.icon('snooze', 13)} Paused · ${Utils.fmtClock(until - Date.now())}`
+    : `${Utils.icon('bell', 13)} Pause reminders 1h`;
+  btn.title = paused ? 'Resume reminders now' : 'Pause all reminders for an hour';
 }
 
 /* ---------------- router ---------------- */
@@ -156,6 +171,25 @@ function handleReminderAction({ kind, action }) {
   }
 }
 
+/* ---------------- shortcuts help ---------------- */
+function showShortcuts() {
+  const rows = [
+    ['Ctrl+1 … Ctrl+9', 'Switch pages (top to bottom)'],
+    ['Esc', 'Skip a running break / close dialogs'],
+    ['Enter', 'Send a coach message / add a plan item'],
+    ['?', 'Show this help'],
+  ];
+  Modal.open({
+    title: 'Keyboard shortcuts',
+    body: `<div style="display:flex;flex-direction:column;gap:10px">${rows.map(([k, d]) =>
+      `<div style="display:flex;align-items:center;gap:12px">
+        <span class="kbd" style="min-width:110px;text-align:center">${Utils.esc(k)}</span>
+        <span style="font-size:var(--text-sm)">${Utils.esc(d)}</span>
+      </div>`).join('')}</div>`,
+    buttons: [{ id: 'ok', label: 'Got it', primary: true }],
+  });
+}
+
 /* ---------------- onboarding ---------------- */
 async function maybeOnboard() {
   if (Store.settings().onboarded) return;
@@ -194,13 +228,27 @@ async function boot() {
   buildNav();
   buildModeSeg();
   updateScore();
+  syncDnd();
   Utils.$('#sideScore').addEventListener('click', () => navigate('dashboard'));
+  Utils.$('#dndBtn').addEventListener('click', () => {
+    const paused = Scheduler.pausedUntil() > Date.now();
+    if (paused) { Scheduler.resume(); Notify.toast('Reminders resumed', 'Back to your regular nudges.', 'info', 2400); }
+    else { Scheduler.pauseFor(60); Notify.toast('Reminders paused', 'Quiet for the next hour — resume any time from the sidebar.', 'info', 3200); }
+  });
 
   Bus.on('store:changed', ({ scope }) => {
     updateScore();
-    if (scope === 'settings') { applyTheme(); buildNav(); syncModeSeg(); }
+    if (scope === 'settings') {
+      applyTheme(); buildNav(); syncModeSeg();
+      // if the page we're on was just disabled, don't leave the user stranded
+      const enabled = Store.settings().modules;
+      if (current && current !== 'dashboard' && current !== 'settings' && enabled[current] === false) {
+        navigate('dashboard');
+      }
+    }
     if (scope === '*') { rendered.clear(); rerenderCurrent(); }
   });
+  Bus.on('scheduler:paused', syncDnd);
 
   Bus.on('reminder:action', handleReminderAction);
   Bus.on('popup:action', ({ action, kind }) => Scheduler.handleAction(action, kind));
@@ -215,12 +263,19 @@ async function boot() {
   // 1 Hz tick for the visible module (countdowns etc.)
   setInterval(() => {
     if (Store.rolloverIfNeeded()) { rendered.clear(); rerenderCurrent(); }
+    if (Scheduler.pausedUntil()) syncDnd();
     const mod = MODULES.find(m => m.id === current);
     mod?.onTick?.(Date.now());
   }, 1000);
 
-  // keyboard: Ctrl+1..9 to switch pages
+  // keyboard: Ctrl+1..9 switches pages, ? shows shortcuts
   document.addEventListener('keydown', e => {
+    if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey &&
+        !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) {
+      e.preventDefault();
+      showShortcuts();
+      return;
+    }
     if (!e.ctrlKey || e.altKey || e.metaKey) return;
     const n = Number(e.key);
     if (n >= 1 && n <= MODULES.length) {

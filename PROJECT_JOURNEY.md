@@ -137,5 +137,22 @@ desktop app and logs each step. Confirmed on Windows 11 with WebView2:
 **Learning:** when the foundation is wrong, the fastest path forward is an honest teardown
 plus a written contract — not another patch on top of the crack.
 
+### v1.1 — Full-app audit, fixes, and polish
+
+A second exhaustive pass drove **every feature end-to-end in a live browser** (60+ scripted
+assertions: every check-in, break kind, timer state, reminder path including a real
+clock-shifted scheduler fire, settings persistence, export/import round-trip, XSS attempts
+on every free-text field — all green, zero console errors). Six real defects were found and
+fixed: completing a stretch sequence credited the wrong module's counter; a brand-new day
+displayed a punishing score of 0 instead of a neutral 50; toggling *any* setting (even the
+theme) silently reset every reminder countdown; disabling the module of the page you were
+viewing stranded you on a hidden page; the eye countdown rendered nonsense like "574:13"
+outside work hours; and a user's very first trend check-in drew an invisible chart.
+
+v1.1 also added: **Do-Not-Disturb** (one click pauses all reminders for an hour, with a
+live countdown in the sidebar), an activity **streak** chip, a weekly summary row on the
+dashboard, an animated score ring, point markers on trend charts, auto-load option for the
+AI model, a keyboard-shortcuts overlay (press `?`), and a visible mode label.
+
 ---
 *Built with ❤️ using Vanilla JS, WebGPU, Rust, and Tauri v2.*

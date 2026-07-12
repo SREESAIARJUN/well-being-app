@@ -233,6 +233,10 @@ function renderEngine() {
         </div>
         <button class="btn btn--primary btn--sm" data-load-model>${Utils.icon('download', 13)} Load AI model</button>
       </div>
+      <label class="row mt-3" style="gap:9px;cursor:pointer">
+        <span class="toggle"><input type="checkbox" data-autoload ${Store.settings().coachAutoLoad ? 'checked' : ''}><i></i></span>
+        <span class="small muted">Load automatically when I open the AI Coach</span>
+      </label>
     </div>`;
 }
 
@@ -383,11 +387,19 @@ export default {
     el.querySelector('#coachEngine').addEventListener('click', e => {
       if (e.target.closest('[data-load-model]')) loadModel();
     });
+    el.querySelector('#coachEngine').addEventListener('change', e => {
+      if (e.target.closest('[data-autoload]')) {
+        Store.updateSettings({ coachAutoLoad: e.target.checked });
+      }
+    });
 
     renderChips();
     renderEngine();
     scrollChat();
-    checkAvailability().then(renderEngine);
+    checkAvailability().then(() => {
+      renderEngine();
+      if (Store.settings().coachAutoLoad && availability?.ok && loadState === 'idle') loadModel();
+    });
   },
 
   onShow() { scrollChat(); },

@@ -1,6 +1,6 @@
 {
   "name": "wellbeing-companion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "WellBeing Companion — privacy-first health & productivity desktop app for desk workers, with a fully on-device WebGPU AI coach.",
   "private": true,
   "scripts": {
