@@ -1,12 +1,12 @@
 // Zero-dependency static server for browser-based frontend dev.
 // (python http.server mis-types .js on Windows; this doesn't.)
-//   node tools/serve.mjs [port]
+//   node tools/serve.mjs [port] [rootDir=app]
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'app');
+const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', process.argv[3] || 'app');
 const PORT = Number(process.argv[2]) || 4173;
 
 const MIME = {
