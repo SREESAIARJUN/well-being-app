@@ -1,5 +1,7 @@
 # WellBeing Companion
 
+**🌐 Website: [sreesaiarjun.github.io/well-being-app](https://sreesaiarjun.github.io/well-being-app/)**
+
 A privacy-first **health & productivity desktop app** for desk workers. It runs quietly
 in the system tray and watches your back — nudging you toward eye breaks, movement,
 better posture, hydration, and calmer focus, with a fully **on-device AI coach** that
